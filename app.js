@@ -1,18 +1,18 @@
 /* Было → Стало — генератор плашек.
-   Вся обработка изображения выполняется в браузере на <canvas>. */
+   Вся обработка изображений выполняется в браузере на <canvas>. */
 
 const $ = (id) => document.getElementById(id);
-
 const canvas = $('canvas');
 const ctx = canvas.getContext('2d');
 
+let uidSeq = 0;
 const state = {
-  img: null,            // загруженное «Было»
-  palette: null,        // подобранные цвета для адаптивного фона
+  items: [],      // [{ id, name, img, palette }]
+  current: -1,    // индекс выбранного для превью
   mode: 'preset',
 };
 
-/* ---------- Загрузка файла ---------- */
+/* ================= Загрузка файлов ================= */
 const dropzone = $('dropzone');
 const fileInput = $('fileInput');
 
@@ -22,241 +22,511 @@ dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
 dropzone.addEventListener('drop', (e) => {
   e.preventDefault();
   dropzone.classList.remove('drag');
-  if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+  addFiles(e.dataTransfer.files);
 });
-fileInput.addEventListener('change', (e) => { if (e.target.files[0]) loadFile(e.target.files[0]); });
+fileInput.addEventListener('change', (e) => { addFiles(e.target.files); fileInput.value = ''; });
 
-function loadFile(file) {
-  if (!file.type.startsWith('image/')) { alert('Выберите файл изображения'); return; }
-  $('fileName').textContent = file.name;
-  const url = URL.createObjectURL(file);
-  const img = new Image();
-  img.onload = () => {
-    state.img = img;
-    state.palette = extractPalette(img);
-    $('download').disabled = false;
-    canvas.classList.add('ready');
-    render();
-    URL.revokeObjectURL(url);
-  };
-  img.onerror = () => alert('Не удалось открыть изображение');
-  img.src = url;
+function addFiles(fileList) {
+  const files = [...fileList].filter((f) => f.type.startsWith('image/'));
+  if (!files.length) return;
+  let pending = files.length;
+  files.forEach((file) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      // url НЕ отзываем сразу — он нужен превьюшкам в галерее; освободим при удалении
+      state.items.push({ id: ++uidSeq, name: file.name, img, url, palette: extractPalette(img) });
+      if (state.current < 0) state.current = state.items.length - 1;
+      if (--pending === 0) { syncUI(); render(); }
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); if (--pending === 0) { syncUI(); render(); } };
+    img.src = url;
+  });
 }
 
-/* ---------- Извлечение палитры из «Было» ---------- */
+$('clearAll').addEventListener('click', () => {
+  state.items.forEach((it) => URL.revokeObjectURL(it.url));
+  state.items = []; state.current = -1;
+  canvas.classList.remove('ready');
+  syncUI();
+});
+
+function syncUI() {
+  const n = state.items.length;
+  const gallery = $('gallery');
+  gallery.hidden = n === 0;
+  $('galleryCount').textContent = n + ' фото';
+  $('fileName').textContent = n ? `Выбрано: ${n}` : 'Файлы не выбраны';
+  $('download').disabled = n === 0;
+  $('downloadZip').disabled = n < 1;
+  $('downloadZip').textContent = n > 1 ? `📦 Скачать все (${n}) в ZIP` : '📦 Скачать (ZIP)';
+
+  const thumbs = $('thumbs');
+  thumbs.innerHTML = '';
+  state.items.forEach((it, i) => {
+    const el = document.createElement('div');
+    el.className = 'thumb' + (i === state.current ? ' active' : '');
+    el.innerHTML = `<img src="${it.url}" alt=""><button class="rm" title="Убрать">×</button>`;
+    el.querySelector('img').addEventListener('click', () => { state.current = i; syncUI(); render(); });
+    el.querySelector('.rm').addEventListener('click', (e) => {
+      e.stopPropagation();
+      URL.revokeObjectURL(it.url);
+      state.items.splice(i, 1);
+      if (state.current >= state.items.length) state.current = state.items.length - 1;
+      if (state.items.length === 0) canvas.classList.remove('ready');
+      syncUI(); render();
+    });
+    thumbs.appendChild(el);
+  });
+}
+
+/* ================= Палитра из «Было» ================= */
 function extractPalette(img) {
-  const s = 40; // уменьшенная копия для анализа
+  const s = 40;
   const c = document.createElement('canvas');
   c.width = s; c.height = s;
   const cx = c.getContext('2d');
   cx.drawImage(img, 0, 0, s, s);
   const data = cx.getImageData(0, 0, s, s).data;
-
   let r = 0, g = 0, b = 0, n = 0;
-  // средний цвет по краям (рамка/фон коллажа обычно на периферии)
-  for (let y = 0; y < s; y++) {
-    for (let x = 0; x < s; x++) {
-      const edge = x < 4 || y < 4 || x > s - 5 || y > s - 5;
-      if (!edge) continue;
-      const i = (y * s + x) * 4;
-      r += data[i]; g += data[i + 1]; b += data[i + 2]; n++;
-    }
+  for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+    if (!(x < 4 || y < 4 || x > s - 5 || y > s - 5)) continue;
+    const i = (y * s + x) * 4;
+    r += data[i]; g += data[i + 1]; b += data[i + 2]; n++;
   }
   r = Math.round(r / n); g = Math.round(g / n); b = Math.round(b / n);
   const [h, sat, l] = rgbToHsl(r, g, b);
   return {
     light: hslToCss(h, Math.min(sat + 8, 90), Math.min(l + 12, 62)),
-    dark:  hslToCss(h, Math.min(sat + 14, 92), Math.max(l - 18, 20)),
+    dark: hslToCss(h, Math.min(sat + 14, 92), Math.max(l - 18, 20)),
     hue: h,
   };
 }
 
-/* ---------- Отрисовка ---------- */
-function render() {
-  if (!state.img) return;
+/* ================= Композиция ================= */
+/* Рисует готовую плашку в переданный контекст. Чистая функция от настроек. */
+function compose(c2d, W, H, item) {
+  drawBackground(c2d, W, H, item);
+  drawImageInside(c2d, W, H, item.img);
+  drawText(c2d, W, H);
+}
 
+function render() {
+  const item = state.items[state.current];
   const W = clampInt($('plateW').value, 200, 4000, 1000);
   const H = clampInt($('plateH').value, 200, 4000, 675);
-  canvas.width = W;
-  canvas.height = H;
   $('dims').textContent = `${W} × ${H}`;
+  canvas.width = W; canvas.height = H;
+  if (!item) return;
+  canvas.classList.add('ready');
+  compose(ctx, W, H, item);
+}
 
-  // 1. Фон
-  drawBackground(W, H);
+function drawBackground(c2d, W, H, item) {
+  const mode = state.mode;
+  if (mode === 'solid') {
+    c2d.fillStyle = $('solidColor').value;
+    c2d.fillRect(0, 0, W, H);
+  } else if (mode === 'blur') {
+    drawBlurBackground(c2d, W, H, item.img);
+  } else {
+    let c1, c2;
+    if (mode === 'adaptive' && item.palette) { c1 = item.palette.light; c2 = item.palette.dark; }
+    else { const hue = +$('presetHue').value; c1 = hslToCss(hue - 8, 70, 46); c2 = hslToCss(hue + 40, 78, 30); }
+    const g = c2d.createLinearGradient(0, 0, W, H);
+    g.addColorStop(0, c1); g.addColorStop(1, c2);
+    c2d.fillStyle = g; c2d.fillRect(0, 0, W, H);
+    const glow = c2d.createRadialGradient(W * 0.32, -H * 0.15, 0, W * 0.32, -H * 0.15, H * 0.9);
+    glow.addColorStop(0, 'rgba(255,255,240,0.35)');
+    glow.addColorStop(1, 'rgba(255,255,240,0)');
+    c2d.fillStyle = glow; c2d.fillRect(0, 0, W, H);
+  }
+  // декор поверх фона (детерминированный шум по размеру + id картинки)
+  const seed = (W * 73856093) ^ (H * 19349663) ^ ((item.id || 1) * 83492791);
+  drawDecor(c2d, W, H, mulberry32(seed >>> 0));
+}
 
-  // 2. Картинка внутри
+function drawBlurBackground(c2d, W, H, img) {
+  const blur = +$('blurAmount').value;
+  const dark = +$('blurDark').value / 100;
+  const k = Math.max(W / img.width, H / img.height) * 1.15;
+  const dw = img.width * k, dh = img.height * k;
+  c2d.save();
+  c2d.filter = `blur(${blur}px)`;
+  c2d.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+  c2d.restore();
+  c2d.fillStyle = `rgba(0,0,0,${dark})`;
+  c2d.fillRect(0, 0, W, H);
+}
+
+function drawImageInside(c2d, W, H, img) {
   const scale = +$('scale').value / 100;
   const borderW = $('borderOn').checked ? +$('borderW').value : 0;
   const radius = +$('radius').value;
-
-  const img = state.img;
-  const availW = W * scale;
-  const availH = H * scale;
-  const k = Math.min(availW / img.width, availH / img.height);
-  const dw = img.width * k;
-  const dh = img.height * k;
-  const dx = (W - dw) / 2;
-  const dy = (H - dh) / 2;
-
-  // тень
-  if ($('shadow').checked) {
-    ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,0.45)';
-    ctx.shadowBlur = Math.max(W, H) * 0.03;
-    ctx.shadowOffsetY = H * 0.012;
-    roundRect(ctx, dx - borderW, dy - borderW, dw + borderW * 2, dh + borderW * 2, radius + borderW);
-    ctx.fillStyle = '#000';
-    ctx.fill();
-    ctx.restore();
-  }
-
-  // рамка
-  if (borderW > 0) {
-    roundRect(ctx, dx - borderW, dy - borderW, dw + borderW * 2, dh + borderW * 2, radius + borderW);
-    ctx.fillStyle = $('borderColor').value;
-    ctx.fill();
-  }
-
-  // само изображение со скруглением
-  ctx.save();
-  roundRect(ctx, dx, dy, dw, dh, radius);
-  ctx.clip();
-  ctx.drawImage(img, dx, dy, dw, dh);
-  ctx.restore();
-}
-
-function drawBackground(W, H) {
-  const mode = state.mode;
-
-  if (mode === 'solid') {
-    ctx.fillStyle = $('solidColor').value;
-    ctx.fillRect(0, 0, W, H);
-    return;
-  }
-
-  if (mode === 'blur') {
-    drawBlurBackground(W, H);
-    if ($('bokeh').checked) drawBokeh(W, H);
-    return;
-  }
-
-  // preset / adaptive — диагональный градиент
-  let c1, c2;
-  if (mode === 'adaptive' && state.palette) {
-    c1 = state.palette.light;
-    c2 = state.palette.dark;
-  } else {
-    const hue = +$('presetHue').value;
-    c1 = hslToCss(hue - 8, 70, 46);
-    c2 = hslToCss(hue + 40, 78, 30);
-  }
-  const g = ctx.createLinearGradient(0, 0, W, H);
-  g.addColorStop(0, c1);
-  g.addColorStop(1, c2);
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, W, H);
-
-  // мягкий свет в верхнем углу
-  const glow = ctx.createRadialGradient(W * 0.32, -H * 0.15, 0, W * 0.32, -H * 0.15, H * 0.9);
-  glow.addColorStop(0, 'rgba(255,255,240,0.35)');
-  glow.addColorStop(1, 'rgba(255,255,240,0)');
-  ctx.fillStyle = glow;
-  ctx.fillRect(0, 0, W, H);
-
-  if ($('bokeh').checked) drawBokeh(W, H);
-}
-
-function drawBlurBackground(W, H) {
-  const img = state.img;
-  const blur = +$('blurAmount').value;
-  const dark = +$('blurDark').value / 100;
-
-  // заполняем плашку увеличенной копией (cover)
-  const k = Math.max(W / img.width, H / img.height) * 1.15;
+  const k = Math.min((W * scale) / img.width, (H * scale) / img.height);
   const dw = img.width * k, dh = img.height * k;
-  ctx.save();
-  ctx.filter = `blur(${blur}px)`;
-  ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
-  ctx.restore();
+  const dx = (W - dw) / 2, dy = (H - dh) / 2;
 
-  ctx.fillStyle = `rgba(0,0,0,${dark})`;
-  ctx.fillRect(0, 0, W, H);
+  if ($('shadow').checked) {
+    c2d.save();
+    c2d.shadowColor = 'rgba(0,0,0,0.45)';
+    c2d.shadowBlur = Math.max(W, H) * 0.03;
+    c2d.shadowOffsetY = H * 0.012;
+    roundRect(c2d, dx - borderW, dy - borderW, dw + borderW * 2, dh + borderW * 2, radius + borderW);
+    c2d.fillStyle = '#000'; c2d.fill();
+    c2d.restore();
+  }
+  if (borderW > 0) {
+    roundRect(c2d, dx - borderW, dy - borderW, dw + borderW * 2, dh + borderW * 2, radius + borderW);
+    c2d.fillStyle = $('borderColor').value; c2d.fill();
+  }
+  c2d.save();
+  roundRect(c2d, dx, dy, dw, dh, radius);
+  c2d.clip();
+  c2d.drawImage(img, dx, dy, dw, dh);
+  c2d.restore();
 }
 
-/* Боке (мягкие пятна света) + пузырьки */
-function drawBokeh(W, H) {
-  const rnd = mulberry32(0x9e37 + W * 7 + H * 13); // детерминированный шум по размеру
-  ctx.save();
-  // светящиеся пятна
-  for (let i = 0; i < 14; i++) {
-    const x = rnd() * W;
-    const y = rnd() * H * 0.6;
-    const r = 8 + rnd() * 46;
-    const a = 0.05 + rnd() * 0.18;
-    const rg = ctx.createRadialGradient(x, y, 0, x, y, r);
-    rg.addColorStop(0, `rgba(255,255,255,${a})`);
-    rg.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = rg;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  // пузырьки-контуры
-  for (let i = 0; i < 26; i++) {
-    const x = rnd() * W;
-    const y = rnd() * H;
-    const r = 2 + rnd() * 9;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.strokeStyle = `rgba(255,255,255,${0.12 + rnd() * 0.2})`;
-    ctx.lineWidth = 1;
-    ctx.stroke();
-  }
-  ctx.restore();
+/* ================= Декор фона ================= */
+function drawDecor(c2d, W, H, rnd) {
+  const style = $('decor').value;
+  const d = +$('density').value / 100;       // 0..1
+  const color = $('decorColor').value;
+  const area = W * H;
+  const base = Math.sqrt(area) / 40;          // масштаб под размер плашки
+
+  const styles = style === 'bokehSparkle' ? ['bokeh', 'sparkle'] : [style];
+  for (const s of styles) DECOR[s]?.(c2d, W, H, rnd, d, color, base);
 }
 
-/* ---------- Экспорт ---------- */
-$('download').addEventListener('click', () => {
-  if (!state.img) return;
-  const type = $('format').value;
-  const q = +$('quality').value / 100;
-  const url = canvas.toDataURL(type, q);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'Стало.' + (type === 'image/png' ? 'png' : 'jpg');
-  a.click();
+const DECOR = {
+  none() {},
+
+  bokeh(c2d, W, H, rnd, d, color, base) {
+    const n = Math.round((8 + 40 * d));
+    const [r, g, b] = hexToRgb(color);
+    for (let i = 0; i < n; i++) {
+      const x = rnd() * W, y = rnd() * H * 0.7;
+      const rad = base * (2 + rnd() * 10);
+      const a = 0.04 + rnd() * 0.16;
+      const rg = c2d.createRadialGradient(x, y, 0, x, y, rad);
+      rg.addColorStop(0, `rgba(${r},${g},${b},${a})`);
+      rg.addColorStop(1, `rgba(${r},${g},${b},0)`);
+      c2d.fillStyle = rg;
+      c2d.beginPath(); c2d.arc(x, y, rad, 0, Math.PI * 2); c2d.fill();
+    }
+  },
+
+  bubbles(c2d, W, H, rnd, d, color, base) {
+    const n = Math.round(10 + 60 * d);
+    const [r, g, b] = hexToRgb(color);
+    for (let i = 0; i < n; i++) {
+      const x = rnd() * W, y = rnd() * H;
+      const rad = base * (0.4 + rnd() * 2.2);
+      c2d.beginPath(); c2d.arc(x, y, rad, 0, Math.PI * 2);
+      c2d.strokeStyle = `rgba(${r},${g},${b},${0.1 + rnd() * 0.22})`;
+      c2d.lineWidth = Math.max(1, base * 0.12);
+      c2d.stroke();
+    }
+  },
+
+  sparkle(c2d, W, H, rnd, d, color, base) {
+    const n = Math.round(8 + 46 * d);
+    const [r, g, b] = hexToRgb(color);
+    for (let i = 0; i < n; i++) {
+      const x = rnd() * W, y = rnd() * H;
+      const sz = base * (0.6 + rnd() * 2.4);
+      const a = 0.35 + rnd() * 0.55;
+      drawStar4(c2d, x, y, sz, `rgba(${r},${g},${b},${a})`);
+    }
+  },
+
+  stars(c2d, W, H, rnd, d, color, base) {
+    const n = Math.round(20 + 120 * d);
+    const [r, g, b] = hexToRgb(color);
+    for (let i = 0; i < n; i++) {
+      const x = rnd() * W, y = rnd() * H;
+      const rad = Math.max(0.6, base * rnd() * 0.5);
+      c2d.beginPath(); c2d.arc(x, y, rad, 0, Math.PI * 2);
+      c2d.fillStyle = `rgba(${r},${g},${b},${0.2 + rnd() * 0.7})`;
+      c2d.fill();
+    }
+  },
+
+  confetti(c2d, W, H, rnd, d, color, base) {
+    const n = Math.round(12 + 80 * d);
+    const palette = ['#ff5d73', '#ffd166', '#06d6a0', '#4cc9f0', '#c77dff', '#ff9f1c'];
+    for (let i = 0; i < n; i++) {
+      const x = rnd() * W, y = rnd() * H;
+      const w = base * (0.5 + rnd() * 1.1), h = w * (0.4 + rnd() * 0.6);
+      c2d.save();
+      c2d.translate(x, y); c2d.rotate(rnd() * Math.PI);
+      c2d.globalAlpha = 0.55 + rnd() * 0.4;
+      c2d.fillStyle = palette[(rnd() * palette.length) | 0];
+      c2d.fillRect(-w / 2, -h / 2, w, h);
+      c2d.restore();
+    }
+    c2d.globalAlpha = 1;
+  },
+
+  snow(c2d, W, H, rnd, d, color, base) {
+    const n = Math.round(20 + 90 * d);
+    const [r, g, b] = hexToRgb(color);
+    for (let i = 0; i < n; i++) {
+      const x = rnd() * W, y = rnd() * H;
+      const rad = base * (0.25 + rnd() * 1.1);
+      c2d.beginPath(); c2d.arc(x, y, rad, 0, Math.PI * 2);
+      c2d.fillStyle = `rgba(${r},${g},${b},${0.35 + rnd() * 0.5})`;
+      c2d.fill();
+    }
+  },
+
+  dots(c2d, W, H, rnd, d, color, base) {
+    const step = base * (7 - 4 * d);           // плотнее при большем d
+    const [r, g, b] = hexToRgb(color);
+    c2d.fillStyle = `rgba(${r},${g},${b},0.18)`;
+    for (let y = step; y < H; y += step)
+      for (let x = step; x < W; x += step) {
+        c2d.beginPath(); c2d.arc(x, y, Math.max(1, base * 0.14), 0, Math.PI * 2); c2d.fill();
+      }
+  },
+
+  rays(c2d, W, H, rnd, d, color, base) {
+    const n = Math.round(6 + 14 * d);
+    const [r, g, b] = hexToRgb(color);
+    const ox = W * 0.2, oy = -H * 0.1;
+    c2d.save();
+    for (let i = 0; i < n; i++) {
+      const a0 = (Math.PI / n) * i + rnd() * 0.1;
+      const spread = 0.04 + rnd() * 0.05;
+      const len = Math.hypot(W, H) * 1.3;
+      c2d.beginPath();
+      c2d.moveTo(ox, oy);
+      c2d.lineTo(ox + Math.cos(a0 - spread) * len, oy + Math.sin(a0 - spread) * len);
+      c2d.lineTo(ox + Math.cos(a0 + spread) * len, oy + Math.sin(a0 + spread) * len);
+      c2d.closePath();
+      c2d.fillStyle = `rgba(${r},${g},${b},${0.03 + rnd() * 0.05})`;
+      c2d.fill();
+    }
+    c2d.restore();
+  },
+};
+
+function drawStar4(c2d, x, y, s, fill) {
+  c2d.save();
+  c2d.translate(x, y);
+  c2d.fillStyle = fill;
+  // блик
+  const rg = c2d.createRadialGradient(0, 0, 0, 0, 0, s * 1.4);
+  rg.addColorStop(0, fill);
+  rg.addColorStop(1, 'rgba(255,255,255,0)');
+  c2d.fillStyle = rg;
+  c2d.beginPath(); c2d.arc(0, 0, s * 1.4, 0, Math.PI * 2); c2d.fill();
+  // четырёхлучевая звезда
+  c2d.fillStyle = fill;
+  c2d.beginPath();
+  c2d.moveTo(0, -s); c2d.quadraticCurveTo(0, 0, s, 0);
+  c2d.quadraticCurveTo(0, 0, 0, s); c2d.quadraticCurveTo(0, 0, -s, 0);
+  c2d.quadraticCurveTo(0, 0, 0, -s);
+  c2d.fill();
+  c2d.restore();
+}
+
+/* ================= Текст поверх ================= */
+function drawText(c2d, W, H) {
+  if (!$('textOn').checked) return;
+  const text = $('textValue').value.trim();
+  if (!text) return;
+
+  const size = (+$('textSize').value / 100) * H;
+  const bold = $('textBold').checked ? '700' : '400';
+  const font = $('textFont').value;
+  const pos = $('textPos').value;
+  const style = $('textStyle').value;
+  const color = $('textColor').value;
+  const pad = W * 0.04;
+
+  c2d.save();
+  c2d.font = `${bold} ${size}px ${font}`;
+  c2d.textBaseline = 'middle';
+  const lines = text.split('\n');
+  const lineH = size * 1.2;
+  const blockH = lineH * lines.length;
+
+  const vert = pos[0]; // t/m/b
+  const horiz = pos[1]; // l/c/r
+  c2d.textAlign = horiz === 'l' ? 'left' : horiz === 'r' ? 'right' : 'center';
+  const x = horiz === 'l' ? pad : horiz === 'r' ? W - pad : W / 2;
+  let yTop = vert === 't' ? pad : vert === 'b' ? H - pad - blockH : (H - blockH) / 2;
+
+  // подложка-плашка на всю ширину строки текста
+  if (style === 'strip') {
+    let maxW = 0;
+    lines.forEach((l) => { maxW = Math.max(maxW, c2d.measureText(l).width); });
+    const bx = horiz === 'l' ? pad - size * 0.4
+      : horiz === 'r' ? W - pad - maxW - size * 0.4 : (W - maxW) / 2 - size * 0.4;
+    c2d.fillStyle = 'rgba(0,0,0,0.42)';
+    roundRect(c2d, bx, yTop - size * 0.35, maxW + size * 0.8, blockH + size * 0.1, size * 0.25);
+    c2d.fill();
+  }
+
+  lines.forEach((line, i) => {
+    const y = yTop + lineH * i + lineH / 2;
+    if (style === 'shadow') {
+      c2d.shadowColor = 'rgba(0,0,0,0.6)';
+      c2d.shadowBlur = size * 0.25; c2d.shadowOffsetY = size * 0.05;
+    }
+    if (style === 'outline') {
+      c2d.lineWidth = size * 0.12; c2d.strokeStyle = 'rgba(0,0,0,0.7)';
+      c2d.lineJoin = 'round'; c2d.strokeText(line, x, y);
+    }
+    c2d.fillStyle = color;
+    c2d.fillText(line, x, y);
+    c2d.shadowColor = 'transparent'; c2d.shadowBlur = 0; c2d.shadowOffsetY = 0;
+  });
+  c2d.restore();
+}
+
+/* ================= Экспорт ================= */
+function renderToBlob(item, W, H, type, q) {
+  const off = document.createElement('canvas');
+  off.width = W; off.height = H;
+  compose(off.getContext('2d'), W, H, item);
+  return new Promise((res) => off.toBlob(res, type, q));
+}
+
+$('download').addEventListener('click', async () => {
+  const item = state.items[state.current];
+  if (!item) return;
+  const { type, q, ext } = exportOpts();
+  const W = clampInt($('plateW').value, 200, 4000, 1000);
+  const H = clampInt($('plateH').value, 200, 4000, 675);
+  const blob = await renderToBlob(item, W, H, type, q);
+  saveBlob(blob, outName(item.name, ext));
 });
 
-/* ---------- Утилиты ---------- */
-function roundRect(ctx, x, y, w, h, r) {
-  r = Math.max(0, Math.min(r, w / 2, h / 2));
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
+$('downloadZip').addEventListener('click', async () => {
+  if (!state.items.length) return;
+  const btn = $('downloadZip');
+  const label = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳ Готовим архив…';
+  const { type, q, ext } = exportOpts();
+  const W = clampInt($('plateW').value, 200, 4000, 1000);
+  const H = clampInt($('plateH').value, 200, 4000, 675);
+  const files = [];
+  for (let i = 0; i < state.items.length; i++) {
+    const it = state.items[i];
+    const blob = await renderToBlob(it, W, H, type, q);
+    const buf = new Uint8Array(await blob.arrayBuffer());
+    files.push({ name: outName(it.name, ext, i + 1), data: buf });
+  }
+  const zip = createZip(files);
+  saveBlob(zip, 'Стало.zip');
+  btn.disabled = false; btn.textContent = label;
+});
+
+function exportOpts() {
+  const type = $('format').value;
+  return { type, q: +$('quality').value / 100, ext: type === 'image/png' ? 'png' : 'jpg' };
+}
+function outName(orig, ext, idx) {
+  const stem = (orig || 'image').replace(/\.[^.]+$/, '');
+  const num = idx ? `_${String(idx).padStart(2, '0')}` : '';
+  return `Стало_${stem}${num}.${ext}`;
+}
+function saveBlob(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+/* ================= Пресеты настроек (localStorage) ================= */
+const PRESET_KEY = 'bylo_stalo_presets_v1';
+const SETTING_IDS = ['plateW','plateH','presetHue','blurAmount','blurDark','solidColor',
+  'decor','density','decorColor','scale','radius','shadow','borderOn','borderColor','borderW',
+  'textOn','textValue','textPos','textStyle','textFont','textColor','textSize','textBold',
+  'format','quality'];
+
+function collectSettings() {
+  const o = { mode: state.mode };
+  SETTING_IDS.forEach((id) => {
+    const el = $(id);
+    o[id] = el.type === 'checkbox' ? el.checked : el.value;
+  });
+  return o;
+}
+function applySettings(o) {
+  if (o.mode) setMode(o.mode);
+  SETTING_IDS.forEach((id) => {
+    if (!(id in o)) return;
+    const el = $(id);
+    if (el.type === 'checkbox') el.checked = o[id]; else el.value = o[id];
+  });
+  refreshLabels(); updateSubControls(); updateDecorUI(); render();
+}
+function loadPresets() { try { return JSON.parse(localStorage.getItem(PRESET_KEY)) || {}; } catch { return {}; } }
+function savePresets(p) { localStorage.setItem(PRESET_KEY, JSON.stringify(p)); }
+function refreshPresetSelect(sel) {
+  const p = loadPresets();
+  const s = $('presetSelect');
+  s.innerHTML = '<option value="">— выбрать пресет —</option>';
+  Object.keys(p).forEach((name) => {
+    const o = document.createElement('option');
+    o.value = name; o.textContent = name;
+    s.appendChild(o);
+  });
+  if (sel) s.value = sel;
+}
+$('savePreset').addEventListener('click', () => {
+  const name = prompt('Название пресета:');
+  if (!name) return;
+  const p = loadPresets();
+  p[name] = collectSettings();
+  savePresets(p); refreshPresetSelect(name);
+});
+$('deletePreset').addEventListener('click', () => {
+  const name = $('presetSelect').value;
+  if (!name) return;
+  const p = loadPresets(); delete p[name];
+  savePresets(p); refreshPresetSelect();
+});
+$('presetSelect').addEventListener('change', (e) => {
+  const p = loadPresets();
+  if (p[e.target.value]) applySettings(p[e.target.value]);
+});
+
+/* ================= Утилиты ================= */
+function roundRect(c2d, x, y, w, h, r) {
+  r = Math.max(0, Math.min(r, w / 2, h / 2));
+  c2d.beginPath();
+  c2d.moveTo(x + r, y);
+  c2d.arcTo(x + w, y, x + w, y + h, r);
+  c2d.arcTo(x + w, y + h, x, y + h, r);
+  c2d.arcTo(x, y + h, x, y, r);
+  c2d.arcTo(x, y, x + w, y, r);
+  c2d.closePath();
+}
 function clampInt(v, min, max, def) {
   v = parseInt(v, 10);
-  if (isNaN(v)) return def;
-  return Math.max(min, Math.min(max, v));
+  return isNaN(v) ? def : Math.max(min, Math.min(max, v));
 }
-
+function hexToRgb(hex) {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [255, 255, 255];
+}
 function rgbToHsl(r, g, b) {
   r /= 255; g /= 255; b /= 255;
   const max = Math.max(r, g, b), min = Math.min(r, g, b);
   let h, s, l = (max + min) / 2;
   if (max === min) { h = s = 0; }
   else {
-    const d = max - min;
-    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    const dd = max - min;
+    s = l > 0.5 ? dd / (2 - max - min) : dd / (max + min);
     switch (max) {
-      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-      case g: h = (b - r) / d + 2; break;
-      default: h = (r - g) / d + 4;
+      case r: h = (g - b) / dd + (g < b ? 6 : 0); break;
+      case g: h = (b - r) / dd + 2; break;
+      default: h = (r - g) / dd + 4;
     }
     h *= 60;
   }
@@ -266,8 +536,6 @@ function hslToCss(h, s, l) {
   h = ((h % 360) + 360) % 360;
   return `hsl(${h}, ${Math.max(0, Math.min(100, s))}%, ${Math.max(0, Math.min(100, l))}%)`;
 }
-
-/* Детерминированный ГПСЧ, чтобы превью совпадало с сохранённым файлом */
 function mulberry32(a) {
   return function () {
     a |= 0; a = (a + 0x6D2B79F5) | 0;
@@ -277,48 +545,70 @@ function mulberry32(a) {
   };
 }
 
-/* ---------- Привязка контролов ---------- */
-// сегменты режима фона
+/* ================= Привязка контролов ================= */
+function setMode(mode) {
+  state.mode = mode;
+  document.querySelectorAll('.seg').forEach((b) => b.classList.toggle('active', b.dataset.mode === mode));
+  updateSubControls();
+}
 document.querySelectorAll('.seg').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.seg').forEach((b) => b.classList.remove('active'));
-    btn.classList.add('active');
-    state.mode = btn.dataset.mode;
-    updateSubControls();
-    render();
-  });
+  btn.addEventListener('click', () => { setMode(btn.dataset.mode); render(); });
 });
 function updateSubControls() {
-  document.querySelectorAll('.sub-controls').forEach((el) => {
+  document.querySelectorAll('.sub-controls[data-for]').forEach((el) => {
     el.classList.toggle('show', el.dataset.for.split(' ').includes(state.mode));
   });
 }
 updateSubControls();
 
+// текстовый блок показываем по чекбоксу
+function updateTextUI() { $('textControls').classList.toggle('show', $('textOn').checked); }
+$('textOn').addEventListener('change', updateTextUI);
+updateTextUI();
+
+// цвет декора не нужен для конфетти (мультицвет)
+function updateDecorUI() {
+  $('decorColorRow').style.display = $('decor').value === 'confetti' ? 'none' : 'flex';
+}
+$('decor').addEventListener('change', updateDecorUI);
+updateDecorUI();
+
 // пресеты размеров
 document.querySelectorAll('.chip').forEach((chip) => {
   chip.addEventListener('click', () => {
-    $('plateW').value = chip.dataset.w;
-    $('plateH').value = chip.dataset.h;
-    render();
+    $('plateW').value = chip.dataset.w; $('plateH').value = chip.dataset.h; render();
   });
 });
 
-// живые подписи значений
-const bind = (id, fmt, out) => {
-  const el = $(id);
-  el.addEventListener('input', () => { if (out) $(out).textContent = fmt(el.value); render(); });
-};
-bind('scale', v => v + '%', 'scaleVal');
-bind('radius', v => v + ' px', 'radiusVal');
-bind('borderW', v => v + ' px', 'borderWVal');
-bind('quality', v => v + '%', 'qVal');
+// живые подписи
+const LABELS = [
+  ['scale', (v) => v + '%', 'scaleVal'],
+  ['radius', (v) => v + ' px', 'radiusVal'],
+  ['borderW', (v) => v + ' px', 'borderWVal'],
+  ['quality', (v) => v + '%', 'qVal'],
+  ['density', (v) => v + '%', 'densityVal'],
+  ['textSize', (v) => v + '%', 'textSizeVal'],
+];
+function refreshLabels() { LABELS.forEach(([id, fmt, out]) => { $(out).textContent = fmt($(id).value); }); }
+LABELS.forEach(([id, fmt, out]) => {
+  $(id).addEventListener('input', () => { $(out).textContent = fmt($(id).value); render(); });
+});
 
-// остальные — просто перерисовка
-['plateW','plateH','presetHue','blurAmount','blurDark','solidColor',
- 'bokeh','shadow','borderOn','borderColor','format']
+// все прочие контролы → перерисовка
+['plateW','plateH','presetHue','blurAmount','blurDark','solidColor','decor','decorColor',
+ 'shadow','borderOn','borderColor','format',
+ 'textOn','textValue','textPos','textStyle','textFont','textColor','textBold']
   .forEach((id) => {
     const el = $(id);
     el.addEventListener('input', render);
     el.addEventListener('change', render);
   });
+
+// старт
+refreshLabels();
+refreshPresetSelect();
+
+// регистрация service worker (офлайн-режим), не критично при ошибке
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}

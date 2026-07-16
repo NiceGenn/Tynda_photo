@@ -4,7 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Было → Стало · Генератор плашек</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#0e7c86" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -22,11 +23,32 @@
     <!-- ЛЕВАЯ ПАНЕЛЬ: настройки -->
     <section class="panel controls">
       <div class="dropzone" id="dropzone">
-        <input type="file" id="fileInput" accept="image/*" hidden />
+        <input type="file" id="fileInput" accept="image/*" multiple hidden />
         <div class="dz-inner">
           <div class="dz-icon">⬆</div>
-          <p><strong>Перетащите «Было.jpg»</strong><br />или нажмите, чтобы выбрать</p>
-          <small id="fileName">Файл не выбран</small>
+          <p><strong>Перетащите «Было»</strong><br />можно несколько сразу</p>
+          <small id="fileName">Файлы не выбраны</small>
+        </div>
+      </div>
+
+      <!-- галерея загруженных фото (пакет) -->
+      <div class="gallery" id="gallery" hidden>
+        <div class="gallery-head">
+          <span id="galleryCount">0 фото</span>
+          <button class="link-btn" id="clearAll">Очистить</button>
+        </div>
+        <div class="thumbs" id="thumbs"></div>
+      </div>
+
+      <!-- Пресеты настроек -->
+      <div class="group">
+        <label class="group-title">Пресеты настроек</label>
+        <div class="row">
+          <select id="presetSelect"><option value="">— выбрать пресет —</option></select>
+        </div>
+        <div class="row">
+          <button class="btn ghost" id="savePreset">💾 Сохранить</button>
+          <button class="btn ghost" id="deletePreset">🗑 Удалить</button>
         </div>
       </div>
 
@@ -40,6 +62,7 @@
           <button class="chip" data-w="1000" data-h="675">1000×675</button>
           <button class="chip" data-w="1200" data-h="800">1200×800</button>
           <button class="chip" data-w="1080" data-h="1080">1080×1080</button>
+          <button class="chip" data-w="1080" data-h="1920">Stories 9:16</button>
           <button class="chip" data-w="1920" data-h="1080">1920×1080</button>
         </div>
       </div>
@@ -53,9 +76,6 @@
           <button class="seg" data-mode="solid">Цвет</button>
         </div>
 
-        <div class="sub-controls" data-for="preset adaptive">
-          <label class="check"><input type="checkbox" id="bokeh" checked /> Боке и пузырьки</label>
-        </div>
         <div class="sub-controls" data-for="preset">
           <label>Оттенок пресета
             <input type="range" id="presetHue" min="0" max="360" value="185" />
@@ -72,6 +92,31 @@
         <div class="sub-controls" data-for="solid">
           <label class="color-row">Цвет фона <input type="color" id="solidColor" value="#0e7c86" /></label>
         </div>
+      </div>
+
+      <!-- Декор -->
+      <div class="group">
+        <label class="group-title">Декор фона</label>
+        <div class="row">
+          <label>Стиль
+            <select id="decor">
+              <option value="none">Без декора</option>
+              <option value="bokeh" selected>Боке (мягкий свет)</option>
+              <option value="bubbles">Пузырьки</option>
+              <option value="sparkle">Блёстки ✨</option>
+              <option value="stars">Звёздная пыль</option>
+              <option value="confetti">Конфетти 🎊</option>
+              <option value="snow">Снег ❄️</option>
+              <option value="dots">Точечная сетка</option>
+              <option value="rays">Лучи света</option>
+              <option value="bokehSparkle">Боке + блёстки</option>
+            </select>
+          </label>
+        </div>
+        <label>Плотность <span class="val" id="densityVal">50%</span>
+          <input type="range" id="density" min="0" max="100" value="50" />
+        </label>
+        <label class="color-row" id="decorColorRow">Цвет декора <input type="color" id="decorColor" value="#ffffff" /></label>
       </div>
 
       <div class="group">
@@ -98,6 +143,53 @@
         </label>
       </div>
 
+      <!-- Текст поверх -->
+      <div class="group">
+        <label class="group-title">Текст поверх</label>
+        <label class="switch"><input type="checkbox" id="textOn" /> Добавить заголовок</label>
+        <div class="sub-controls" id="textControls">
+          <textarea id="textValue" rows="2" placeholder="Текст заголовка…"></textarea>
+          <div class="row">
+            <label>Положение
+              <select id="textPos">
+                <option value="tl">↖ сверху слева</option>
+                <option value="tc">↑ сверху по центру</option>
+                <option value="tr">↗ сверху справа</option>
+                <option value="ml">← по центру слева</option>
+                <option value="mc">• центр</option>
+                <option value="mr">→ по центру справа</option>
+                <option value="bl">↙ снизу слева</option>
+                <option value="bc" selected>↓ снизу по центру</option>
+                <option value="br">↘ снизу справа</option>
+              </select>
+            </label>
+            <label>Стиль
+              <select id="textStyle">
+                <option value="strip">Плашка-подложка</option>
+                <option value="shadow" selected>Тень</option>
+                <option value="outline">Обводка</option>
+                <option value="plain">Без эффекта</option>
+              </select>
+            </label>
+          </div>
+          <div class="row">
+            <label>Шрифт
+              <select id="textFont">
+                <option value="system-ui, sans-serif">Sans-serif</option>
+                <option value="Georgia, serif">Serif</option>
+                <option value="'Courier New', monospace">Моно</option>
+                <option value="Impact, sans-serif">Impact</option>
+              </select>
+            </label>
+            <label class="color-row">Цвет <input type="color" id="textColor" value="#ffffff" /></label>
+          </div>
+          <label>Размер <span class="val" id="textSizeVal">7%</span>
+            <input type="range" id="textSize" min="3" max="20" value="7" />
+          </label>
+          <label class="switch"><input type="checkbox" id="textBold" checked /> Жирный</label>
+        </div>
+      </div>
+
       <div class="group">
         <label class="group-title">Экспорт</label>
         <div class="row">
@@ -112,6 +204,7 @@
           </label>
         </div>
         <button class="btn primary" id="download" disabled>⬇ Скачать «Стало»</button>
+        <button class="btn primary alt" id="downloadZip" disabled>📦 Скачать все (ZIP)</button>
       </div>
     </section>
 
@@ -132,6 +225,7 @@
     Считается локально · фото никуда не отправляются · <a href="https://github.com/NiceGenn/Tynda_photo" target="_blank" rel="noopener">GitHub</a>
   </footer>
 
+  <script src="zip.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

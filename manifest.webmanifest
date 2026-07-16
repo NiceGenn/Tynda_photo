@@ -1,0 +1,18 @@
+{
+  "name": "Было → Стало · Генератор плашек",
+  "short_name": "Было→Стало",
+  "description": "Генератор плашек для фото: фон-подложка, рамка, декор, текст. Всё в браузере.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b1220",
+  "theme_color": "#0e7c86",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
