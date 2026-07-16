@@ -84,8 +84,9 @@ function syncUI() {
   state.items.forEach((it, i) => {
     const el = document.createElement('div');
     el.className = 'thumb' + (!state.collage && i === state.current ? ' active' : '');
+    el.draggable = true;
     const badge = state.collage ? `<span class="ord">${i + 1}</span>` : '';
-    el.innerHTML = `<img src="${it.url}" alt="">${badge}<button class="rm" title="Убрать">×</button>`;
+    el.innerHTML = `<img src="${it.url}" draggable="false" alt="">${badge}<button class="rm" title="Убрать">×</button>`;
     el.querySelector('img').addEventListener('click', () => { state.current = i; syncUI(); render(); });
     el.querySelector('.rm').addEventListener('click', (e) => {
       e.stopPropagation();
@@ -95,8 +96,31 @@ function syncUI() {
       if (state.items.length === 0) canvas.classList.remove('ready');
       syncUI(); render();
     });
+    // перетаскивание для смены порядка
+    el.addEventListener('dragstart', (e) => { dragFrom = i; el.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; });
+    el.addEventListener('dragend', () => el.classList.remove('dragging'));
+    el.addEventListener('dragover', (e) => { e.preventDefault(); el.classList.add('drop-target'); });
+    el.addEventListener('dragleave', () => el.classList.remove('drop-target'));
+    el.addEventListener('drop', (e) => {
+      e.preventDefault(); el.classList.remove('drop-target');
+      moveItem(dragFrom, i);
+    });
     thumbs.appendChild(el);
   });
+}
+
+let dragFrom = -1;
+function moveItem(from, to) {
+  if (from < 0 || to < 0 || from === to || from >= state.items.length) return;
+  const [it] = state.items.splice(from, 1);
+  state.items.splice(to, 0, it);
+  if (!state.collage) state.current = to;
+  syncUI(); render();
+}
+function swapItems(a, b) {
+  if (a === b) return;
+  const t = state.items[a]; state.items[a] = state.items[b]; state.items[b] = t;
+  syncUI(); render();
 }
 
 /* ================= Палитра из «Было» ================= */
@@ -145,6 +169,10 @@ function buildCollage() {
   let W, H;
   if (aw >= ah) { W = LONG; H = Math.round(LONG * ah / aw); }
   else { H = LONG; W = Math.round(LONG * aw / ah); }
+
+  // сохраняем геометрию для хит-теста по клику
+  state.collageDims = { W, H };
+  state.collageCells = cells;
 
   const cv = document.createElement('canvas');
   cv.width = W; cv.height = H;
@@ -232,13 +260,17 @@ function drawBlurBackground(c2d, W, H, img, iw, ih) {
   c2d.fillRect(0, 0, W, H);
 }
 
-function drawImageInside(c2d, W, H, img, iw, ih) {
+function computeInset(W, H, iw, ih) {
   const scale = +$('scale').value / 100;
-  const borderW = $('borderOn').checked ? +$('borderW').value : 0;
-  const radius = +$('radius').value;
   const k = Math.min((W * scale) / iw, (H * scale) / ih);
   const dw = iw * k, dh = ih * k;
-  const dx = (W - dw) / 2, dy = (H - dh) / 2;
+  return { dx: (W - dw) / 2, dy: (H - dh) / 2, dw, dh };
+}
+
+function drawImageInside(c2d, W, H, img, iw, ih) {
+  const borderW = $('borderOn').checked ? +$('borderW').value : 0;
+  const radius = +$('radius').value;
+  const { dx, dy, dw, dh } = computeInset(W, H, iw, ih);
 
   if ($('shadow').checked) {
     c2d.save();
@@ -650,6 +682,72 @@ function setCollage(on) {
 document.querySelectorAll('#modeToggle .seg').forEach((btn) => {
   btn.addEventListener('click', () => { setCollage(btn.dataset.collage === '1'); render(); });
 });
+
+/* ===== Клик по ячейке коллажа → выбор фото ===== */
+function cellAt(clientX, clientY) {
+  if (!state.collage || !state.collageDims || !state.collageCells) return -1;
+  const rect = canvas.getBoundingClientRect();
+  const cx = (clientX - rect.left) * (canvas.width / rect.width);
+  const cy = (clientY - rect.top) * (canvas.height / rect.height);
+  const { W: cw, H: ch } = state.collageDims;
+  const ins = computeInset(canvas.width, canvas.height, cw, ch);
+  const u = (cx - ins.dx) / ins.dw, v = (cy - ins.dy) / ins.dh;
+  if (u < 0 || u > 1 || v < 0 || v > 1) return -1;
+  return state.collageCells.findIndex((c) => u >= c[0] && u <= c[0] + c[2] && v >= c[1] && v <= c[1] + c[3]);
+}
+
+canvas.style.cursor = 'default';
+canvas.addEventListener('mousemove', (e) => {
+  canvas.style.cursor = (state.collage && cellAt(e.clientX, e.clientY) >= 0) ? 'pointer' : 'default';
+});
+canvas.addEventListener('click', (e) => {
+  if (!state.collage || !state.items.length) return;
+  const idx = cellAt(e.clientX, e.clientY);
+  if (idx < 0) return;
+  if (idx >= state.items.length) { flashHint('Загрузите больше фото, чтобы заполнить эту ячейку'); return; }
+  openCellPicker(idx, e.clientX, e.clientY);
+});
+
+function openCellPicker(cellIndex, clientX, clientY) {
+  const p = $('cellPicker');
+  p.innerHTML = '';
+  const title = document.createElement('div');
+  title.className = 'cp-title';
+  title.textContent = `Поставить в ячейку №${cellIndex + 1}:`;
+  p.appendChild(title);
+  const grid = document.createElement('div');
+  grid.className = 'cp-grid';
+  state.items.forEach((it, j) => {
+    const t = document.createElement('div');
+    t.className = 'cp-item' + (j === cellIndex ? ' current' : '');
+    t.innerHTML = `<img src="${it.url}" alt=""><span>${j + 1}</span>`;
+    t.addEventListener('click', (ev) => { ev.stopPropagation(); swapItems(cellIndex, j); closeCellPicker(); });
+    grid.appendChild(t);
+  });
+  p.appendChild(grid);
+  p.hidden = false;
+  // держим меню в пределах окна
+  const pw = p.offsetWidth, ph = p.offsetHeight;
+  p.style.left = Math.max(8, Math.min(clientX, window.innerWidth - pw - 8)) + 'px';
+  p.style.top = Math.max(8, Math.min(clientY, window.innerHeight - ph - 8)) + 'px';
+}
+function closeCellPicker() { $('cellPicker').hidden = true; }
+document.addEventListener('click', (e) => {
+  const p = $('cellPicker');
+  if (!p.hidden && !p.contains(e.target) && e.target !== canvas) closeCellPicker();
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCellPicker(); });
+
+let hintTimer = null;
+function flashHint(msg) {
+  const el = $('collageHint');
+  if (!el) return;
+  el.hidden = false;
+  const prev = el.textContent;
+  el.textContent = msg;
+  clearTimeout(hintTimer);
+  hintTimer = setTimeout(() => { el.textContent = prev; }, 2500);
+}
 
 // текстовый блок показываем по чекбоксу
 function updateTextUI() { $('textControls').classList.toggle('show', $('textOn').checked); }

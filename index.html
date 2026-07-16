@@ -38,7 +38,7 @@
           <button class="link-btn" id="clearAll">Очистить</button>
         </div>
         <div class="thumbs" id="thumbs"></div>
-        <small class="hint" id="collageHint" hidden>Порядок = порядок загрузки. Наведите на фото и нажмите ×, чтобы убрать.</small>
+        <small class="hint" id="collageHint" hidden>Перетаскивайте миниатюры мышкой, чтобы изменить порядок. Кликните по ячейке коллажа в превью, чтобы заменить в ней фото.</small>
       </div>
 
       <!-- Режим -->
@@ -270,6 +270,9 @@
   <footer class="foot">
     Считается локально · фото никуда не отправляются · <a href="https://github.com/NiceGenn/Tynda_photo" target="_blank" rel="noopener">GitHub</a>
   </footer>
+
+  <!-- всплывающий выбор фото для ячейки коллажа -->
+  <div id="cellPicker" class="cell-picker" hidden></div>
 
   <script src="zip.js"></script>
   <script src="app.js"></script>
