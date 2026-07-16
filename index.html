@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Было → Стало · Генератор плашек</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">✦</span>
+      <div>
+        <h1>Было&nbsp;→&nbsp;Стало</h1>
+        <p class="sub">Генератор плашек для фото · всё считается прямо в браузере</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- ЛЕВАЯ ПАНЕЛЬ: настройки -->
+    <section class="panel controls">
+      <div class="dropzone" id="dropzone">
+        <input type="file" id="fileInput" accept="image/*" hidden />
+        <div class="dz-inner">
+          <div class="dz-icon">⬆</div>
+          <p><strong>Перетащите «Было.jpg»</strong><br />или нажмите, чтобы выбрать</p>
+          <small id="fileName">Файл не выбран</small>
+        </div>
+      </div>
+
+      <div class="group">
+        <label class="group-title">Размер плашки</label>
+        <div class="row">
+          <label>Ширина <input type="number" id="plateW" value="1000" min="200" max="4000" /></label>
+          <label>Высота <input type="number" id="plateH" value="675" min="200" max="4000" /></label>
+        </div>
+        <div class="presets">
+          <button class="chip" data-w="1000" data-h="675">1000×675</button>
+          <button class="chip" data-w="1200" data-h="800">1200×800</button>
+          <button class="chip" data-w="1080" data-h="1080">1080×1080</button>
+          <button class="chip" data-w="1920" data-h="1080">1920×1080</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <label class="group-title">Фон</label>
+        <div class="segmented" id="bgMode">
+          <button class="seg active" data-mode="preset">Пресет</button>
+          <button class="seg" data-mode="adaptive">Адаптивный</button>
+          <button class="seg" data-mode="blur">Размытие</button>
+          <button class="seg" data-mode="solid">Цвет</button>
+        </div>
+
+        <div class="sub-controls" data-for="preset adaptive">
+          <label class="check"><input type="checkbox" id="bokeh" checked /> Боке и пузырьки</label>
+        </div>
+        <div class="sub-controls" data-for="preset">
+          <label>Оттенок пресета
+            <input type="range" id="presetHue" min="0" max="360" value="185" />
+          </label>
+        </div>
+        <div class="sub-controls" data-for="blur">
+          <label>Сила размытия
+            <input type="range" id="blurAmount" min="10" max="120" value="55" />
+          </label>
+          <label>Затемнение фона
+            <input type="range" id="blurDark" min="0" max="80" value="30" />
+          </label>
+        </div>
+        <div class="sub-controls" data-for="solid">
+          <label class="color-row">Цвет фона <input type="color" id="solidColor" value="#0e7c86" /></label>
+        </div>
+      </div>
+
+      <div class="group">
+        <label class="group-title">Картинка внутри</label>
+        <label>Масштаб <span class="val" id="scaleVal">88%</span>
+          <input type="range" id="scale" min="40" max="100" value="88" />
+        </label>
+        <label>Скругление углов <span class="val" id="radiusVal">18 px</span>
+          <input type="range" id="radius" min="0" max="80" value="18" />
+        </label>
+        <div class="row">
+          <label class="switch"><input type="checkbox" id="shadow" checked /> Тень</label>
+        </div>
+      </div>
+
+      <div class="group">
+        <label class="group-title">Рамка</label>
+        <div class="row">
+          <label class="switch"><input type="checkbox" id="borderOn" checked /> Включить</label>
+          <label class="color-row">Цвет <input type="color" id="borderColor" value="#2aa79b" /></label>
+        </div>
+        <label>Толщина <span class="val" id="borderWVal">10 px</span>
+          <input type="range" id="borderW" min="0" max="40" value="10" />
+        </label>
+      </div>
+
+      <div class="group">
+        <label class="group-title">Экспорт</label>
+        <div class="row">
+          <label>Формат
+            <select id="format">
+              <option value="image/jpeg">JPG</option>
+              <option value="image/png">PNG</option>
+            </select>
+          </label>
+          <label>Качество <span class="val" id="qVal">92%</span>
+            <input type="range" id="quality" min="60" max="100" value="92" />
+          </label>
+        </div>
+        <button class="btn primary" id="download" disabled>⬇ Скачать «Стало»</button>
+      </div>
+    </section>
+
+    <!-- ПРАВАЯ ПАНЕЛЬ: превью -->
+    <section class="panel preview">
+      <div class="preview-head">
+        <span>Предпросмотр</span>
+        <span class="dims" id="dims">1000 × 675</span>
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="canvas"></canvas>
+        <div class="empty-hint" id="emptyHint">Загрузите изображение «Было», чтобы увидеть результат</div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    Считается локально · фото никуда не отправляются · <a href="https://github.com/NiceGenn/Tynda_photo" target="_blank" rel="noopener">GitHub</a>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
