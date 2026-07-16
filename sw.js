@@ -1,5 +1,8 @@
-/* Простой офлайн-кэш приложения. */
-const CACHE = 'bylo-stalo-v1';
+/* Офлайн-кэш приложения.
+   Стратегия «сеть в приоритете»: при онлайне всегда берём свежую версию
+   и обновляем кэш; кэш используется только как запасной вариант офлайн.
+   Это исключает залипание на старой версии после деплоя. */
+const CACHE = 'bylo-stalo-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -16,18 +19,22 @@ self.addEventListener('install', (e) => {
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
 
 self.addEventListener('fetch', (e) => {
-  if (e.request.method !== 'GET') return;
+  const req = e.request;
+  if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
   e.respondWith(
-    caches.match(e.request).then((cached) => cached || fetch(e.request).then((res) => {
-      const copy = res.clone();
-      caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
-      return res;
-    }).catch(() => cached))
+    fetch(req)
+      .then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
+        return res;
+      })
+      .catch(() => caches.match(req))
   );
 });
