@@ -7,9 +7,23 @@ const ctx = canvas.getContext('2d');
 
 let uidSeq = 0;
 const state = {
-  items: [],      // [{ id, name, img, palette }]
-  current: -1,    // индекс выбранного для превью
-  mode: 'preset',
+  items: [],       // [{ id, name, img, url, palette }]
+  current: -1,     // индекс выбранного для превью (режим «Плашка»)
+  mode: 'preset',  // фон
+  collage: false,  // режим коллажа
+};
+
+/* Макеты коллажа: ячейки в относительных координатах [x, y, w, h] (0..1) */
+const LAYOUTS = {
+  '2h': [[0, 0, .5, 1], [.5, 0, .5, 1]],
+  '2v': [[0, 0, 1, .5], [0, .5, 1, .5]],
+  '3l': [[0, 0, .5, 1], [.5, 0, .5, .5], [.5, .5, .5, .5]],
+  '3t': [[0, 0, 1, .5], [0, .5, .5, .5], [.5, .5, .5, .5]],
+  '3c': [[0, 0, 1 / 3, 1], [1 / 3, 0, 1 / 3, 1], [2 / 3, 0, 1 / 3, 1]],
+  '4g': [[0, 0, .5, .5], [.5, 0, .5, .5], [0, .5, .5, .5], [.5, .5, .5, .5]],
+  '4l': [[0, 0, .6, 1], [.6, 0, .4, 1 / 3], [.6, 1 / 3, .4, 1 / 3], [.6, 2 / 3, .4, 1 / 3]],
+  '5m': [[0, 0, .5, .58], [.5, 0, .5, .58], [0, .58, 1 / 3, .42], [1 / 3, .58, 1 / 3, .42], [2 / 3, .58, 1 / 3, .42]],
+  '6g': [[0, 0, 1 / 3, .5], [1 / 3, 0, 1 / 3, .5], [2 / 3, 0, 1 / 3, .5], [0, .5, 1 / 3, .5], [1 / 3, .5, 1 / 3, .5], [2 / 3, .5, 1 / 3, .5]],
 };
 
 /* ================= Загрузка файлов ================= */
@@ -56,8 +70,12 @@ function syncUI() {
   const gallery = $('gallery');
   gallery.hidden = n === 0;
   $('galleryCount').textContent = n + ' фото';
+  $('collageHint').hidden = !state.collage || n === 0;
   $('fileName').textContent = n ? `Выбрано: ${n}` : 'Файлы не выбраны';
+
   $('download').disabled = n === 0;
+  // ZIP имеет смысл только в режиме «Плашка» (в коллаже результат один)
+  $('downloadZip').hidden = state.collage;
   $('downloadZip').disabled = n < 1;
   $('downloadZip').textContent = n > 1 ? `📦 Скачать все (${n}) в ZIP` : '📦 Скачать (ZIP)';
 
@@ -65,8 +83,9 @@ function syncUI() {
   thumbs.innerHTML = '';
   state.items.forEach((it, i) => {
     const el = document.createElement('div');
-    el.className = 'thumb' + (i === state.current ? ' active' : '');
-    el.innerHTML = `<img src="${it.url}" alt=""><button class="rm" title="Убрать">×</button>`;
+    el.className = 'thumb' + (!state.collage && i === state.current ? ' active' : '');
+    const badge = state.collage ? `<span class="ord">${i + 1}</span>` : '';
+    el.innerHTML = `<img src="${it.url}" alt="">${badge}<button class="rm" title="Убрать">×</button>`;
     el.querySelector('img').addEventListener('click', () => { state.current = i; syncUI(); render(); });
     el.querySelector('.rm').addEventListener('click', (e) => {
       e.stopPropagation();
@@ -104,34 +123,88 @@ function extractPalette(img) {
 }
 
 /* ================= Композиция ================= */
+/* Источник вставки: { drawable, w, h, palette, id }.
+   В режиме «Плашка» — выбранное фото; в режиме «Коллаж» — собранный холст. */
+function getSource() {
+  if (state.collage) {
+    const cv = buildCollage();
+    if (!cv) return null;
+    return { drawable: cv, w: cv.width, h: cv.height, palette: extractPalette(cv), id: 7 };
+  }
+  const item = state.items[state.current];
+  if (!item) return null;
+  return { drawable: item.img, w: item.img.width, h: item.img.height, palette: item.palette, id: item.id };
+}
+
+/* Собирает коллаж из загруженных фото в отдельный холст. */
+function buildCollage() {
+  if (!state.items.length) return null;
+  const cells = LAYOUTS[$('collageLayout').value] || LAYOUTS['4g'];
+  const [aw, ah] = $('collageAspect').value.split(':').map(Number);
+  const LONG = 1600;
+  let W, H;
+  if (aw >= ah) { W = LONG; H = Math.round(LONG * ah / aw); }
+  else { H = LONG; W = Math.round(LONG * aw / ah); }
+
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const c = cv.getContext('2d');
+  const minside = Math.min(W, H);
+  const gap = (+$('collageGap').value / 100) * minside;
+  const radius = (+$('collageRadius').value / 100) * minside;
+
+  c.fillStyle = $('collageGapColor').value;
+  c.fillRect(0, 0, W, H);
+
+  cells.forEach((cell, i) => {
+    const x = cell[0] * W + gap / 2, y = cell[1] * H + gap / 2;
+    const w = cell[2] * W - gap, h = cell[3] * H - gap;
+    if (w <= 0 || h <= 0) return;
+    c.save();
+    roundRect(c, x, y, w, h, radius);
+    c.clip();
+    const img = state.items[i] && state.items[i].img;
+    if (img) {
+      const k = Math.max(w / img.width, h / img.height); // cover
+      const dw = img.width * k, dh = img.height * k;
+      c.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
+    } else {
+      c.fillStyle = 'rgba(0,0,0,0.18)';
+      c.fillRect(x, y, w, h);
+    }
+    c.restore();
+  });
+  return cv;
+}
+
 /* Рисует готовую плашку в переданный контекст. Чистая функция от настроек. */
-function compose(c2d, W, H, item) {
-  drawBackground(c2d, W, H, item);
-  drawImageInside(c2d, W, H, item.img);
+function compose(c2d, W, H, src) {
+  drawBackground(c2d, W, H, src);
+  drawImageInside(c2d, W, H, src.drawable, src.w, src.h);
   drawText(c2d, W, H);
 }
 
 function render() {
-  const item = state.items[state.current];
   const W = clampInt($('plateW').value, 200, 4000, 1000);
   const H = clampInt($('plateH').value, 200, 4000, 675);
   $('dims').textContent = `${W} × ${H}`;
   canvas.width = W; canvas.height = H;
-  if (!item) return;
+  const src = getSource();
+  if (!src) { canvas.classList.remove('ready'); return; }
   canvas.classList.add('ready');
-  compose(ctx, W, H, item);
+  compose(ctx, W, H, src);
 }
 
-function drawBackground(c2d, W, H, item) {
+function drawBackground(c2d, W, H, src) {
   const mode = state.mode;
   if (mode === 'solid') {
     c2d.fillStyle = $('solidColor').value;
     c2d.fillRect(0, 0, W, H);
   } else if (mode === 'blur') {
-    drawBlurBackground(c2d, W, H, item.img);
+    drawBlurBackground(c2d, W, H, src.drawable, src.w, src.h);
   } else {
     let c1, c2;
-    if (mode === 'adaptive' && item.palette) { c1 = item.palette.light; c2 = item.palette.dark; }
+    if (mode === 'adaptive' && src.palette) { c1 = src.palette.light; c2 = src.palette.dark; }
     else { const hue = +$('presetHue').value; c1 = hslToCss(hue - 8, 70, 46); c2 = hslToCss(hue + 40, 78, 30); }
     const g = c2d.createLinearGradient(0, 0, W, H);
     g.addColorStop(0, c1); g.addColorStop(1, c2);
@@ -141,16 +214,16 @@ function drawBackground(c2d, W, H, item) {
     glow.addColorStop(1, 'rgba(255,255,240,0)');
     c2d.fillStyle = glow; c2d.fillRect(0, 0, W, H);
   }
-  // декор поверх фона (детерминированный шум по размеру + id картинки)
-  const seed = (W * 73856093) ^ (H * 19349663) ^ ((item.id || 1) * 83492791);
+  // декор поверх фона (детерминированный шум по размеру + id источника)
+  const seed = (W * 73856093) ^ (H * 19349663) ^ ((src.id || 1) * 83492791);
   drawDecor(c2d, W, H, mulberry32(seed >>> 0));
 }
 
-function drawBlurBackground(c2d, W, H, img) {
+function drawBlurBackground(c2d, W, H, img, iw, ih) {
   const blur = +$('blurAmount').value;
   const dark = +$('blurDark').value / 100;
-  const k = Math.max(W / img.width, H / img.height) * 1.15;
-  const dw = img.width * k, dh = img.height * k;
+  const k = Math.max(W / iw, H / ih) * 1.15;
+  const dw = iw * k, dh = ih * k;
   c2d.save();
   c2d.filter = `blur(${blur}px)`;
   c2d.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
@@ -159,12 +232,12 @@ function drawBlurBackground(c2d, W, H, img) {
   c2d.fillRect(0, 0, W, H);
 }
 
-function drawImageInside(c2d, W, H, img) {
+function drawImageInside(c2d, W, H, img, iw, ih) {
   const scale = +$('scale').value / 100;
   const borderW = $('borderOn').checked ? +$('borderW').value : 0;
   const radius = +$('radius').value;
-  const k = Math.min((W * scale) / img.width, (H * scale) / img.height);
-  const dw = img.width * k, dh = img.height * k;
+  const k = Math.min((W * scale) / iw, (H * scale) / ih);
+  const dw = iw * k, dh = ih * k;
   const dx = (W - dw) / 2, dy = (H - dh) / 2;
 
   if ($('shadow').checked) {
@@ -388,35 +461,38 @@ function drawText(c2d, W, H) {
 }
 
 /* ================= Экспорт ================= */
-function renderToBlob(item, W, H, type, q) {
+function renderSrcToBlob(src, W, H, type, q) {
   const off = document.createElement('canvas');
   off.width = W; off.height = H;
-  compose(off.getContext('2d'), W, H, item);
+  compose(off.getContext('2d'), W, H, src);
   return new Promise((res) => off.toBlob(res, type, q));
+}
+function plateSize() {
+  return [clampInt($('plateW').value, 200, 4000, 1000), clampInt($('plateH').value, 200, 4000, 675)];
 }
 
 $('download').addEventListener('click', async () => {
-  const item = state.items[state.current];
-  if (!item) return;
+  const src = getSource();
+  if (!src) return;
   const { type, q, ext } = exportOpts();
-  const W = clampInt($('plateW').value, 200, 4000, 1000);
-  const H = clampInt($('plateH').value, 200, 4000, 675);
-  const blob = await renderToBlob(item, W, H, type, q);
-  saveBlob(blob, outName(item.name, ext));
+  const [W, H] = plateSize();
+  const blob = await renderSrcToBlob(src, W, H, type, q);
+  const name = state.collage ? outName('коллаж', ext) : outName(state.items[state.current].name, ext);
+  saveBlob(blob, name);
 });
 
 $('downloadZip').addEventListener('click', async () => {
-  if (!state.items.length) return;
+  if (!state.items.length) return;                 // ZIP — только в режиме «Плашка»
   const btn = $('downloadZip');
   const label = btn.textContent;
   btn.disabled = true; btn.textContent = '⏳ Готовим архив…';
   const { type, q, ext } = exportOpts();
-  const W = clampInt($('plateW').value, 200, 4000, 1000);
-  const H = clampInt($('plateH').value, 200, 4000, 675);
+  const [W, H] = plateSize();
   const files = [];
   for (let i = 0; i < state.items.length; i++) {
     const it = state.items[i];
-    const blob = await renderToBlob(it, W, H, type, q);
+    const src = { drawable: it.img, w: it.img.width, h: it.img.height, palette: it.palette, id: it.id };
+    const blob = await renderSrcToBlob(src, W, H, type, q);
     const buf = new Uint8Array(await blob.arrayBuffer());
     files.push({ name: outName(it.name, ext, i + 1), data: buf });
   }
@@ -446,10 +522,11 @@ const PRESET_KEY = 'bylo_stalo_presets_v1';
 const SETTING_IDS = ['plateW','plateH','presetHue','blurAmount','blurDark','solidColor',
   'decor','density','decorColor','scale','radius','shadow','borderOn','borderColor','borderW',
   'textOn','textValue','textPos','textStyle','textFont','textColor','textSize','textBold',
+  'collageLayout','collageAspect','collageGap','collageRadius','collageGapColor',
   'format','quality'];
 
 function collectSettings() {
-  const o = { mode: state.mode };
+  const o = { mode: state.mode, collage: state.collage };
   SETTING_IDS.forEach((id) => {
     const el = $(id);
     o[id] = el.type === 'checkbox' ? el.checked : el.value;
@@ -458,6 +535,7 @@ function collectSettings() {
 }
 function applySettings(o) {
   if (o.mode) setMode(o.mode);
+  if ('collage' in o) setCollage(o.collage);
   SETTING_IDS.forEach((id) => {
     if (!(id in o)) return;
     const el = $(id);
@@ -548,10 +626,10 @@ function mulberry32(a) {
 /* ================= Привязка контролов ================= */
 function setMode(mode) {
   state.mode = mode;
-  document.querySelectorAll('.seg').forEach((b) => b.classList.toggle('active', b.dataset.mode === mode));
+  document.querySelectorAll('#bgMode .seg').forEach((b) => b.classList.toggle('active', b.dataset.mode === mode));
   updateSubControls();
 }
-document.querySelectorAll('.seg').forEach((btn) => {
+document.querySelectorAll('#bgMode .seg').forEach((btn) => {
   btn.addEventListener('click', () => { setMode(btn.dataset.mode); render(); });
 });
 function updateSubControls() {
@@ -560,6 +638,18 @@ function updateSubControls() {
   });
 }
 updateSubControls();
+
+// переключатель режима: Плашка ↔ Коллаж
+function setCollage(on) {
+  state.collage = !!on;
+  document.querySelectorAll('#modeToggle .seg').forEach((b) =>
+    b.classList.toggle('active', (b.dataset.collage === '1') === state.collage));
+  $('collageGroup').hidden = !state.collage;
+  syncUI();
+}
+document.querySelectorAll('#modeToggle .seg').forEach((btn) => {
+  btn.addEventListener('click', () => { setCollage(btn.dataset.collage === '1'); render(); });
+});
 
 // текстовый блок показываем по чекбоксу
 function updateTextUI() { $('textControls').classList.toggle('show', $('textOn').checked); }
@@ -588,6 +678,8 @@ const LABELS = [
   ['quality', (v) => v + '%', 'qVal'],
   ['density', (v) => v + '%', 'densityVal'],
   ['textSize', (v) => v + '%', 'textSizeVal'],
+  ['collageGap', (v) => v + '%', 'collageGapVal'],
+  ['collageRadius', (v) => v + '%', 'collageRadiusVal'],
 ];
 function refreshLabels() { LABELS.forEach(([id, fmt, out]) => { $(out).textContent = fmt($(id).value); }); }
 LABELS.forEach(([id, fmt, out]) => {
@@ -597,7 +689,8 @@ LABELS.forEach(([id, fmt, out]) => {
 // все прочие контролы → перерисовка
 ['plateW','plateH','presetHue','blurAmount','blurDark','solidColor','decor','decorColor',
  'shadow','borderOn','borderColor','format',
- 'textOn','textValue','textPos','textStyle','textFont','textColor','textBold']
+ 'textOn','textValue','textPos','textStyle','textFont','textColor','textBold',
+ 'collageLayout','collageAspect','collageGapColor']
   .forEach((id) => {
     const el = $(id);
     el.addEventListener('input', render);

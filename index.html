@@ -38,6 +38,52 @@
           <button class="link-btn" id="clearAll">Очистить</button>
         </div>
         <div class="thumbs" id="thumbs"></div>
+        <small class="hint" id="collageHint" hidden>Порядок = порядок загрузки. Наведите на фото и нажмите ×, чтобы убрать.</small>
+      </div>
+
+      <!-- Режим -->
+      <div class="group">
+        <label class="group-title">Режим</label>
+        <div class="segmented" id="modeToggle">
+          <button class="seg active" data-collage="0">Плашка · по одной</button>
+          <button class="seg" data-collage="1">Коллаж</button>
+        </div>
+      </div>
+
+      <!-- Настройки коллажа -->
+      <div class="group collage-group" id="collageGroup" hidden>
+        <label class="group-title">Коллаж</label>
+        <div class="row">
+          <label>Макет
+            <select id="collageLayout">
+              <option value="2h">2 · рядом</option>
+              <option value="2v">2 · стопкой</option>
+              <option value="3l">3 · большая слева</option>
+              <option value="3t">3 · большая сверху</option>
+              <option value="3c">3 · колонки</option>
+              <option value="4g" selected>4 · сетка 2×2</option>
+              <option value="4l">4 · большая + 3</option>
+              <option value="5m">5 · 2 сверху + 3 снизу</option>
+              <option value="6g">6 · сетка 3×2</option>
+            </select>
+          </label>
+          <label>Пропорции
+            <select id="collageAspect">
+              <option value="1:1" selected>1:1 квадрат</option>
+              <option value="4:3">4:3</option>
+              <option value="3:4">3:4</option>
+              <option value="16:9">16:9</option>
+              <option value="3:2">3:2</option>
+            </select>
+          </label>
+        </div>
+        <label>Зазор <span class="val" id="collageGapVal">2%</span>
+          <input type="range" id="collageGap" min="0" max="8" step="0.5" value="2" />
+        </label>
+        <label>Скругление ячеек <span class="val" id="collageRadiusVal">2%</span>
+          <input type="range" id="collageRadius" min="0" max="12" step="0.5" value="2" />
+        </label>
+        <label class="color-row">Цвет зазоров <input type="color" id="collageGapColor" value="#2aa79b" /></label>
       </div>
 
       <!-- Пресеты настроек -->
