@@ -293,6 +293,15 @@ function drawImageInside(c2d, W, H, img, iw, ih) {
 }
 
 /* ================= Декор фона ================= */
+/* Стили-сочетания: раскрываются в список простых стилей */
+const DECOR_COMBOS = {
+  bokehSparkle: ['bokeh', 'sparkle'],
+  snowSparkle: ['snow', 'sparkle'],
+  bokehVignette: ['bokeh', 'vignette'],
+  grainVignette: ['grain', 'vignette'],
+  starsRays: ['rays', 'stars'],
+};
+
 function drawDecor(c2d, W, H, rnd) {
   const style = $('decor').value;
   const d = +$('density').value / 100;       // 0..1
@@ -300,7 +309,7 @@ function drawDecor(c2d, W, H, rnd) {
   const area = W * H;
   const base = Math.sqrt(area) / 40;          // масштаб под размер плашки
 
-  const styles = style === 'bokehSparkle' ? ['bokeh', 'sparkle'] : [style];
+  const styles = DECOR_COMBOS[style] || [style];
   for (const s of styles) DECOR[s]?.(c2d, W, H, rnd, d, color, base);
 }
 
@@ -414,6 +423,232 @@ const DECOR = {
       c2d.fill();
     }
     c2d.restore();
+  },
+
+  hearts(c2d, W, H, rnd, d, color, base) {
+    const n = Math.round(5 + 35 * d);
+    const [r, g, b] = hexToRgb(color);
+    for (let i = 0; i < n; i++) {
+      const s = base * (0.5 + rnd() * 1.7);
+      c2d.save();
+      c2d.translate(rnd() * W, rnd() * H);
+      c2d.rotate((rnd() - 0.5) * 0.7);
+      c2d.fillStyle = `rgba(${r},${g},${b},${0.2 + rnd() * 0.5})`;
+      c2d.beginPath();
+      c2d.moveTo(0, s * 0.4);
+      c2d.bezierCurveTo(s * 1.1, -s * 0.35, s * 0.45, -s * 1.15, 0, -s * 0.45);
+      c2d.bezierCurveTo(-s * 0.45, -s * 1.15, -s * 1.1, -s * 0.35, 0, s * 0.4);
+      c2d.fill();
+      c2d.restore();
+    }
+  },
+
+  petals(c2d, W, H, rnd, d, color, base) {
+    const n = Math.round(8 + 44 * d);
+    const [r, g, b] = hexToRgb(color);
+    for (let i = 0; i < n; i++) {
+      const s = base * (0.5 + rnd() * 1.6);
+      c2d.save();
+      c2d.translate(rnd() * W, rnd() * H);
+      c2d.rotate(rnd() * Math.PI * 2);
+      c2d.fillStyle = `rgba(${r},${g},${b},${0.18 + rnd() * 0.45})`;
+      c2d.beginPath();
+      c2d.ellipse(0, 0, s, s * (0.35 + rnd() * 0.25), 0, 0, Math.PI * 2);
+      c2d.fill();
+      c2d.restore();
+    }
+  },
+
+  leaves(c2d, W, H, rnd, d, color, base) {
+    const n = Math.round(6 + 34 * d);
+    const [r, g, b] = hexToRgb(color);
+    for (let i = 0; i < n; i++) {
+      const s = base * (0.7 + rnd() * 2);
+      c2d.save();
+      c2d.translate(rnd() * W, rnd() * H);
+      c2d.rotate(rnd() * Math.PI * 2);
+      c2d.fillStyle = `rgba(${r},${g},${b},${0.15 + rnd() * 0.35})`;
+      c2d.beginPath();                       // лист: два дуговых края
+      c2d.moveTo(-s, 0);
+      c2d.quadraticCurveTo(0, -s * 0.6, s, 0);
+      c2d.quadraticCurveTo(0, s * 0.6, -s, 0);
+      c2d.fill();
+      c2d.restore();
+    }
+  },
+
+  waves(c2d, W, H, rnd, d, color, base) {
+    const n = Math.round(3 + 10 * d);
+    const [r, g, b] = hexToRgb(color);
+    c2d.lineWidth = Math.max(1, base * 0.09);
+    for (let i = 0; i < n; i++) {
+      const yBase = (H / (n + 1)) * (i + 1) + (rnd() - 0.5) * base * 2;
+      const amp = base * (0.4 + rnd() * 1.4);
+      const len = W / (3 + rnd() * 5);
+      const phase = rnd() * Math.PI * 2;
+      c2d.beginPath();
+      for (let x = 0; x <= W; x += 6) {
+        const y = yBase + Math.sin(x / len + phase) * amp;
+        if (x === 0) c2d.moveTo(x, y); else c2d.lineTo(x, y);
+      }
+      c2d.strokeStyle = `rgba(${r},${g},${b},${0.07 + rnd() * 0.16})`;
+      c2d.stroke();
+    }
+  },
+
+  triangles(c2d, W, H, rnd, d, color, base) {
+    const n = Math.round(5 + 30 * d);
+    const [r, g, b] = hexToRgb(color);
+    for (let i = 0; i < n; i++) {
+      const s = base * (0.6 + rnd() * 2);
+      c2d.save();
+      c2d.translate(rnd() * W, rnd() * H);
+      c2d.rotate(rnd() * Math.PI * 2);
+      c2d.beginPath();
+      c2d.moveTo(0, -s);
+      c2d.lineTo(s * 0.87, s * 0.5);
+      c2d.lineTo(-s * 0.87, s * 0.5);
+      c2d.closePath();
+      if (rnd() > 0.5) {
+        c2d.fillStyle = `rgba(${r},${g},${b},${0.06 + rnd() * 0.14})`;
+        c2d.fill();
+      } else {
+        c2d.strokeStyle = `rgba(${r},${g},${b},${0.12 + rnd() * 0.22})`;
+        c2d.lineWidth = Math.max(1, base * 0.08);
+        c2d.stroke();
+      }
+      c2d.restore();
+    }
+  },
+
+  stripes(c2d, W, H, rnd, d, color, base) {
+    const gap = base * (6.5 - 4 * d);
+    const [r, g, b] = hexToRgb(color);
+    c2d.save();
+    c2d.strokeStyle = `rgba(${r},${g},${b},0.10)`;
+    c2d.lineWidth = gap * 0.35;
+    for (let x = -H; x < W + H; x += gap) {
+      c2d.beginPath();
+      c2d.moveTo(x, 0);
+      c2d.lineTo(x - H, H);
+      c2d.stroke();
+    }
+    c2d.restore();
+  },
+
+  grid(c2d, W, H, rnd, d, color, base) {
+    const step = base * (7 - 4 * d);
+    const [r, g, b] = hexToRgb(color);
+    c2d.save();
+    c2d.strokeStyle = `rgba(${r},${g},${b},0.13)`;
+    c2d.lineWidth = Math.max(1, base * 0.05);
+    c2d.beginPath();
+    for (let x = step; x < W; x += step) { c2d.moveTo(x, 0); c2d.lineTo(x, H); }
+    for (let y = step; y < H; y += step) { c2d.moveTo(0, y); c2d.lineTo(W, y); }
+    c2d.stroke();
+    c2d.restore();
+  },
+
+  plus(c2d, W, H, rnd, d, color, base) {
+    const n = Math.round(10 + 55 * d);
+    const [r, g, b] = hexToRgb(color);
+    c2d.lineWidth = Math.max(1, base * 0.08);
+    for (let i = 0; i < n; i++) {
+      const x = rnd() * W, y = rnd() * H;
+      const s = base * (0.25 + rnd() * 0.7);
+      c2d.beginPath();
+      c2d.moveTo(x - s, y); c2d.lineTo(x + s, y);
+      c2d.moveTo(x, y - s); c2d.lineTo(x, y + s);
+      c2d.strokeStyle = `rgba(${r},${g},${b},${0.14 + rnd() * 0.3})`;
+      c2d.stroke();
+    }
+  },
+
+  honeycomb(c2d, W, H, rnd, d, color, base) {
+    const R = base * (3.4 - 1.8 * d);
+    const hstep = R * 1.5, vstep = R * Math.sqrt(3);
+    const [r, g, b] = hexToRgb(color);
+    c2d.save();
+    c2d.strokeStyle = `rgba(${r},${g},${b},0.13)`;
+    c2d.lineWidth = Math.max(1, base * 0.05);
+    c2d.beginPath();
+    for (let col = 0; col * hstep < W + R; col++) {
+      const x = col * hstep;
+      const off = (col % 2) * vstep / 2;
+      for (let row = 0; off + row * vstep < H + R; row++) {
+        const y = off + row * vstep;
+        for (let k = 0; k < 6; k++) {
+          const a = (Math.PI / 3) * k;
+          const px = x + Math.cos(a) * R, py = y + Math.sin(a) * R;
+          if (k === 0) c2d.moveTo(px, py); else c2d.lineTo(px, py);
+        }
+        c2d.closePath();
+      }
+    }
+    c2d.stroke();
+    c2d.restore();
+  },
+
+  rings(c2d, W, H, rnd, d, color, base) {
+    const n = Math.round(2 + 7 * d);
+    const [r, g, b] = hexToRgb(color);
+    c2d.lineWidth = Math.max(1, base * 0.08);
+    for (let i = 0; i < n; i++) {
+      const cx = rnd() * W, cy = rnd() * H;
+      const rings = 2 + ((rnd() * 4) | 0);
+      for (let k = 1; k <= rings; k++) {
+        c2d.beginPath();
+        c2d.arc(cx, cy, base * k * (1.1 + rnd() * 0.8), 0, Math.PI * 2);
+        c2d.strokeStyle = `rgba(${r},${g},${b},${0.06 + rnd() * 0.12})`;
+        c2d.stroke();
+      }
+    }
+  },
+
+  fireworks(c2d, W, H, rnd, d, color, base) {
+    const n = Math.round(2 + 6 * d);
+    const [r, g, b] = hexToRgb(color);
+    for (let i = 0; i < n; i++) {
+      const cx = rnd() * W, cy = rnd() * H * 0.75;
+      const rays = 10 + ((rnd() * 16) | 0);
+      const R = base * (2 + rnd() * 5);
+      const a0 = rnd() * Math.PI;
+      for (let k = 0; k < rays; k++) {
+        const a = (Math.PI * 2 / rays) * k + a0;
+        const r1 = R * 0.2, r2 = R * (0.7 + rnd() * 0.5);
+        const alpha = 0.12 + rnd() * 0.35;
+        c2d.beginPath();
+        c2d.moveTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1);
+        c2d.lineTo(cx + Math.cos(a) * r2, cy + Math.sin(a) * r2);
+        c2d.strokeStyle = `rgba(${r},${g},${b},${alpha})`;
+        c2d.lineWidth = Math.max(1, base * 0.07);
+        c2d.stroke();
+        c2d.beginPath();
+        c2d.arc(cx + Math.cos(a) * r2, cy + Math.sin(a) * r2, base * 0.11, 0, Math.PI * 2);
+        c2d.fillStyle = `rgba(${r},${g},${b},${alpha + 0.15})`;
+        c2d.fill();
+      }
+    }
+  },
+
+  grain(c2d, W, H, rnd, d, color, base) {
+    const n = Math.min(9000, Math.round((W * H) / 240 * (0.25 + d)));
+    const [r, g, b] = hexToRgb(color);
+    const sz = Math.max(1.2, base * 0.09);
+    for (let i = 0; i < n; i++) {
+      c2d.fillStyle = `rgba(${r},${g},${b},${0.05 + rnd() * 0.2})`;
+      c2d.fillRect(rnd() * W, rnd() * H, sz, sz);
+    }
+  },
+
+  vignette(c2d, W, H, rnd, d) {
+    const rg = c2d.createRadialGradient(
+      W / 2, H / 2, Math.min(W, H) * 0.22,
+      W / 2, H / 2, Math.max(W, H) * 0.75);
+    rg.addColorStop(0, 'rgba(0,0,0,0)');
+    rg.addColorStop(1, `rgba(0,0,0,${0.2 + 0.55 * d})`);
+    c2d.fillStyle = rg;
+    c2d.fillRect(0, 0, W, H);
   },
 };
 
@@ -540,7 +775,7 @@ function exportOpts() {
 function outName(orig, ext, idx) {
   const stem = (orig || 'image').replace(/\.[^.]+$/, '');
   const num = idx ? `_${String(idx).padStart(2, '0')}` : '';
-  return `Стало_${stem}${num}.${ext}`;
+  return `0_${stem}${num}.${ext}`;
 }
 function saveBlob(blob, name) {
   const url = URL.createObjectURL(blob);
@@ -754,9 +989,10 @@ function updateTextUI() { $('textControls').classList.toggle('show', $('textOn')
 $('textOn').addEventListener('change', updateTextUI);
 updateTextUI();
 
-// цвет декора не нужен для конфетти (мультицвет)
+// цвет декора не нужен для конфетти (мультицвет) и виньетки (затемнение)
+const DECOR_NO_COLOR = new Set(['confetti', 'vignette']);
 function updateDecorUI() {
-  $('decorColorRow').style.display = $('decor').value === 'confetti' ? 'none' : 'flex';
+  $('decorColorRow').style.display = DECOR_NO_COLOR.has($('decor').value) ? 'none' : 'flex';
 }
 $('decor').addEventListener('change', updateDecorUI);
 updateDecorUI();

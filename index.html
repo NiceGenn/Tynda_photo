@@ -15,7 +15,7 @@
     <div class="brand">
       <span class="logo">✦</span>
       <div>
-        <h1>Было&nbsp;→&nbsp;Стало <span class="ver" id="appVer">v1.6</span></h1>
+        <h1>Было&nbsp;→&nbsp;Стало <span class="ver" id="appVer">v1.7</span></h1>
         <p class="sub">Генератор плашек для фото · всё считается прямо в браузере</p>
       </div>
     </div>
@@ -149,15 +149,42 @@
           <label>Стиль
             <select id="decor">
               <option value="none">Без декора</option>
-              <option value="bokeh" selected>Боке (мягкий свет)</option>
-              <option value="bubbles">Пузырьки</option>
-              <option value="sparkle">Блёстки ✨</option>
-              <option value="stars">Звёздная пыль</option>
-              <option value="confetti">Конфетти 🎊</option>
-              <option value="snow">Снег ❄️</option>
-              <option value="dots">Точечная сетка</option>
-              <option value="rays">Лучи света</option>
-              <option value="bokehSparkle">Боке + блёстки</option>
+              <optgroup label="Свет и блеск">
+                <option value="bokeh" selected>Боке (мягкий свет)</option>
+                <option value="sparkle">Блёстки ✨</option>
+                <option value="stars">Звёздная пыль</option>
+                <option value="rays">Лучи света</option>
+                <option value="fireworks">Салют 🎆</option>
+                <option value="rings">Круги на воде</option>
+              </optgroup>
+              <optgroup label="Природа">
+                <option value="bubbles">Пузырьки</option>
+                <option value="snow">Снег ❄️</option>
+                <option value="petals">Лепестки 🌸</option>
+                <option value="hearts">Сердечки ❤️</option>
+                <option value="waves">Волны 〰️</option>
+                <option value="leaves">Листья 🍃</option>
+              </optgroup>
+              <optgroup label="Геометрия">
+                <option value="dots">Точечная сетка</option>
+                <option value="grid">Линии сетки</option>
+                <option value="stripes">Диагональные полосы</option>
+                <option value="triangles">Треугольники</option>
+                <option value="plus">Плюсики</option>
+                <option value="honeycomb">Соты</option>
+              </optgroup>
+              <optgroup label="Праздник и фактура">
+                <option value="confetti">Конфетти 🎊</option>
+                <option value="grain">Зерно (плёнка)</option>
+                <option value="vignette">Виньетка</option>
+              </optgroup>
+              <optgroup label="Сочетания">
+                <option value="bokehSparkle">Боке + блёстки</option>
+                <option value="snowSparkle">Снег + блёстки</option>
+                <option value="bokehVignette">Боке + виньетка</option>
+                <option value="grainVignette">Зерно + виньетка</option>
+                <option value="starsRays">Звёзды + лучи</option>
+              </optgroup>
             </select>
           </label>
         </div>
