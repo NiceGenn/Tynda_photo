@@ -773,18 +773,33 @@ function exportOpts() {
   return { type, q: +$('quality').value / 100, ext: type === 'image/png' ? 'png' : 'jpg' };
 }
 
-/* Имена файлов — только латиница: 0_Tynda_<5 случайных символов>.<ext> */
+/* Имена файлов — только латиница: 0_Tynda_<дата>_<5 случайных символов>.<ext> */
 const RAND_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789';
 function randId(n = 5) {
   let s = '';
   for (let i = 0; i < n; i++) s += RAND_CHARS[(Math.random() * RAND_CHARS.length) | 0];
   return s;
 }
+function namePrefix() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  const iso = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  switch ($('nameTemplate').value) {
+    case 'dmy': return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()}_`;
+    case 'isoTime': return `${iso}_${p(d.getHours())}${p(d.getMinutes())}_`;
+    case 'plain': return '';
+    default: return `${iso}_`;
+  }
+}
 function outName(ext, used) {
+  const prefix = namePrefix();
   let name;
-  do { name = `0_Tynda_${randId()}.${ext}`; } while (used && used.has(name));
+  do { name = `0_Tynda_${prefix}${randId()}.${ext}`; } while (used && used.has(name));
   if (used) used.add(name);
   return name;
+}
+function refreshNamePreview() {
+  $('namePreview').textContent = `0_Tynda_${namePrefix()}${randId()}.${exportOpts().ext}`;
 }
 function saveBlob(blob, name) {
   const url = URL.createObjectURL(blob);
@@ -799,7 +814,7 @@ const SETTING_IDS = ['plateW','plateH','presetHue','blurAmount','blurDark','soli
   'decor','density','decorColor','scale','radius','shadow','borderOn','borderColor','borderW',
   'textOn','textValue','textPos','textStyle','textFont','textColor','textSize','textBold',
   'collageLayout','collageAspect','collageGap','collageRadius','collageGapColor',
-  'format','quality'];
+  'format','quality','nameTemplate'];
 
 function collectSettings() {
   const o = { mode: state.mode, collage: state.collage };
@@ -817,7 +832,7 @@ function applySettings(o) {
     const el = $(id);
     if (el.type === 'checkbox') el.checked = o[id]; else el.value = o[id];
   });
-  refreshLabels(); updateSubControls(); updateDecorUI(); render();
+  refreshLabels(); updateSubControls(); updateDecorUI(); refreshNamePreview(); render();
 }
 function loadPresets() { try { return JSON.parse(localStorage.getItem(PRESET_KEY)) || {}; } catch { return {}; } }
 function savePresets(p) { localStorage.setItem(PRESET_KEY, JSON.stringify(p)); }
@@ -1040,8 +1055,12 @@ LABELS.forEach(([id, fmt, out]) => {
     el.addEventListener('change', render);
   });
 
+// пример имени файла обновляем при смене шаблона или формата
+['nameTemplate', 'format'].forEach((id) => $(id).addEventListener('change', refreshNamePreview));
+
 // старт
 refreshLabels();
+refreshNamePreview();
 refreshPresetSelect();
 
 // регистрация service worker (офлайн-режим), не критично при ошибке

@@ -15,7 +15,7 @@
     <div class="brand">
       <span class="logo">✦</span>
       <div>
-        <h1>Было&nbsp;→&nbsp;Стало <span class="ver" id="appVer">v1.8</span></h1>
+        <h1>Было&nbsp;→&nbsp;Стало <span class="ver" id="appVer">v1.9</span></h1>
         <p class="sub">Генератор плашек для фото · всё считается прямо в браузере</p>
       </div>
     </div>
@@ -278,6 +278,15 @@
             <input type="range" id="quality" min="60" max="100" value="92" />
           </label>
         </div>
+        <label>Имя файла
+          <select id="nameTemplate">
+            <option value="iso" selected>0_Tynda_2026-01-09_код (дата, сортируется)</option>
+            <option value="dmy">0_Tynda_09.01.2026_код</option>
+            <option value="isoTime">0_Tynda_2026-01-09_1432_код (с временем)</option>
+            <option value="plain">0_Tynda_код (без даты)</option>
+          </select>
+        </label>
+        <small class="hint">Пример: <span id="namePreview">—</span></small>
         <button class="btn primary" id="download" disabled>⬇ Скачать «Стало»</button>
         <button class="btn primary alt" id="downloadZip" disabled>📦 Скачать все (ZIP)</button>
       </div>
