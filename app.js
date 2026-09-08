@@ -744,8 +744,7 @@ $('download').addEventListener('click', async () => {
   const { type, q, ext } = exportOpts();
   const [W, H] = plateSize();
   const blob = await renderSrcToBlob(src, W, H, type, q);
-  const name = state.collage ? outName('коллаж', ext) : outName(state.items[state.current].name, ext);
-  saveBlob(blob, name);
+  saveBlob(blob, outName(ext));
 });
 
 $('downloadZip').addEventListener('click', async () => {
@@ -756,15 +755,16 @@ $('downloadZip').addEventListener('click', async () => {
   const { type, q, ext } = exportOpts();
   const [W, H] = plateSize();
   const files = [];
+  const used = new Set();                          // гарантируем уникальность имён в архиве
   for (let i = 0; i < state.items.length; i++) {
     const it = state.items[i];
     const src = { drawable: it.img, w: it.img.width, h: it.img.height, palette: it.palette, id: it.id };
     const blob = await renderSrcToBlob(src, W, H, type, q);
     const buf = new Uint8Array(await blob.arrayBuffer());
-    files.push({ name: outName(it.name, ext, i + 1), data: buf });
+    files.push({ name: outName(ext, used), data: buf });
   }
   const zip = createZip(files);
-  saveBlob(zip, 'Стало.zip');
+  saveBlob(zip, outName('zip'));
   btn.disabled = false; btn.textContent = label;
 });
 
@@ -772,10 +772,19 @@ function exportOpts() {
   const type = $('format').value;
   return { type, q: +$('quality').value / 100, ext: type === 'image/png' ? 'png' : 'jpg' };
 }
-function outName(orig, ext, idx) {
-  const stem = (orig || 'image').replace(/\.[^.]+$/, '');
-  const num = idx ? `_${String(idx).padStart(2, '0')}` : '';
-  return `0_${stem}${num}.${ext}`;
+
+/* Имена файлов — только латиница: 0_Tynda_<5 случайных символов>.<ext> */
+const RAND_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789';
+function randId(n = 5) {
+  let s = '';
+  for (let i = 0; i < n; i++) s += RAND_CHARS[(Math.random() * RAND_CHARS.length) | 0];
+  return s;
+}
+function outName(ext, used) {
+  let name;
+  do { name = `0_Tynda_${randId()}.${ext}`; } while (used && used.has(name));
+  if (used) used.add(name);
+  return name;
 }
 function saveBlob(blob, name) {
   const url = URL.createObjectURL(blob);
