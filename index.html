@@ -15,7 +15,7 @@
     <div class="brand">
       <span class="logo">✦</span>
       <div>
-        <h1>Было&nbsp;→&nbsp;Стало <span class="ver" id="appVer">v3.0</span></h1>
+        <h1>Было&nbsp;→&nbsp;Стало <span class="ver" id="appVer">v3.1</span></h1>
         <p class="sub">Генератор плашек для фото · всё считается прямо в браузере</p>
       </div>
     </div>
@@ -25,7 +25,11 @@
     <button class="tab active" data-tab="plates">🖼 Плашки</button>
     <button class="tab" data-tab="compress">🗜 Сжатие</button>
     <button class="tab" data-tab="ba">↔️ До / После</button>
+    <button class="tab" data-tab="join">🧷 Склейка</button>
+    <button class="tab" data-tab="multi">📐 Мультиэкспорт</button>
+    <button class="tab" data-tab="triage">⭐ Отбраковка</button>
     <button class="tab" data-tab="blur">🫥 Размытие лиц</button>
+    <button class="tab" data-tab="scan">📄 Сканер</button>
     <button class="tab" data-tab="exif">🔎 Паспорт фото</button>
   </nav>
 
@@ -578,6 +582,197 @@
     </section>
   </main>
 
+  <!-- ВКЛАДКА: СКЛЕЙКА -->
+  <main class="layout" id="tabJoin" data-panel="join" hidden>
+    <section class="panel controls">
+      <div class="dropzone" id="jnDrop">
+        <input type="file" id="jnFile" accept="image/*" multiple hidden />
+        <div class="dz-inner">
+          <div class="dz-icon">🧷</div>
+          <p><strong>Перетащите фото</strong><br />они склеятся в одну ленту</p>
+          <small id="jnName">Файлы не выбраны</small>
+        </div>
+      </div>
+      <div class="gallery" id="jnGallery" hidden>
+        <div class="gallery-head"><span id="jnCount">0 фото</span>
+          <button class="link-btn" id="jnClear">Очистить</button></div>
+        <div class="thumbs" id="jnThumbs"></div>
+        <small class="hint">Порядок меняется перетаскиванием миниатюр.</small>
+      </div>
+
+      <div class="group">
+        <label class="group-title">Направление</label>
+        <div class="segmented" id="jnDir">
+          <button class="seg active" data-d="v">Столбиком ↓</button>
+          <button class="seg" data-d="h">В ряд →</button>
+          <button class="seg" data-d="grid">Сеткой ▦</button>
+        </div>
+        <label id="jnColsRow" hidden>Колонок <span class="val" id="jnColsVal">2</span>
+          <input type="range" id="jnCols" min="2" max="5" value="2" />
+        </label>
+      </div>
+
+      <div class="group">
+        <label class="group-title">Оформление</label>
+        <label>Зазор <span class="val" id="jnGapVal">10 px</span>
+          <input type="range" id="jnGap" min="0" max="80" value="10" />
+        </label>
+        <label>Поля <span class="val" id="jnPadVal">10 px</span>
+          <input type="range" id="jnPad" min="0" max="80" value="10" />
+        </label>
+        <label class="color-row">Цвет фона <input type="color" id="jnBg" value="#ffffff" /></label>
+        <label>Ширина результата <span class="val" id="jnSizeVal">1200 px</span>
+          <input type="range" id="jnSize" min="600" max="3000" step="100" value="1200" />
+        </label>
+      </div>
+
+      <button class="btn primary" id="jnDownload" disabled>⬇ Скачать</button>
+    </section>
+    <section class="panel preview">
+      <div class="preview-head"><span>Предпросмотр</span><span class="dims" id="jnDims">—</span></div>
+      <div class="canvas-wrap">
+        <canvas id="jnCanvas"></canvas>
+        <div class="empty-hint">Загрузите несколько фото, чтобы склеить их в одну картинку</div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ВКЛАДКА: МУЛЬТИЭКСПОРТ -->
+  <main class="layout" id="tabMulti" data-panel="multi" hidden>
+    <section class="panel controls">
+      <div class="dropzone" id="mxDrop">
+        <input type="file" id="mxFile" accept="image/*" multiple hidden />
+        <div class="dz-inner">
+          <div class="dz-icon">📐</div>
+          <p><strong>Перетащите фото</strong><br />получите сразу все размеры</p>
+          <small id="mxName">Файлы не выбраны</small>
+        </div>
+      </div>
+
+      <div class="group">
+        <label class="group-title">Какие размеры нужны</label>
+        <div id="mxSizes" class="mx-sizes"></div>
+        <div class="row">
+          <button class="btn ghost" id="mxAll">Выбрать все</button>
+          <button class="btn ghost" id="mxNone">Снять все</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <label class="group-title">Как вписывать</label>
+        <div class="segmented" id="mxFit">
+          <button class="seg active" data-f="cover">Заполнить (обрезать)</button>
+          <button class="seg" data-f="contain">Целиком (с полями)</button>
+        </div>
+        <label class="color-row" id="mxBgRow" hidden>Цвет полей <input type="color" id="mxBg" value="#ffffff" /></label>
+        <label>Качество <span class="val" id="mxQVal">88%</span>
+          <input type="range" id="mxQ" min="60" max="100" value="88" />
+        </label>
+      </div>
+
+      <button class="btn primary" id="mxDownload" disabled>📦 Скачать все (ZIP)</button>
+    </section>
+    <section class="panel preview">
+      <div class="preview-head"><span>Что получится</span><span class="dims" id="mxTotal">—</span></div>
+      <div class="c-list" id="mxList">
+        <div class="empty-hint">Загрузите фото и отметьте нужные размеры</div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ВКЛАДКА: ОТБРАКОВКА -->
+  <main class="layout" id="tabTriage" data-panel="triage" hidden>
+    <section class="panel controls">
+      <div class="dropzone" id="trDrop">
+        <input type="file" id="trFile" accept="image/*" multiple hidden />
+        <div class="dz-inner">
+          <div class="dz-icon">⭐</div>
+          <p><strong>Перетащите пачку фото</strong><br />найду смазанные и повторы</p>
+          <small id="trName">Файлы не выбраны</small>
+        </div>
+      </div>
+
+      <div class="group">
+        <label class="group-title">Сортировка</label>
+        <div class="segmented" id="trSort">
+          <button class="seg active" data-s="sharp">Сначала чёткие</button>
+          <button class="seg" data-s="blurry">Сначала смазанные</button>
+          <button class="seg" data-s="name">По имени</button>
+        </div>
+        <label>Порог «смазано» <span class="val" id="trThVal">30</span>
+          <input type="range" id="trTh" min="5" max="80" value="30" />
+        </label>
+        <label class="switch"><input type="checkbox" id="trDup" checked /> Искать повторы</label>
+      </div>
+
+      <div class="group">
+        <label class="group-title">Итог</label>
+        <div class="ex-rows" id="trStats"><div class="ex-row"><span>Пока пусто</span></div></div>
+        <div class="row">
+          <button class="btn ghost" id="trPickGood">Отметить чёткие</button>
+          <button class="btn ghost" id="trDropDup">Снять повторы</button>
+        </div>
+        <button class="btn ghost" id="trClear">Очистить список</button>
+      </div>
+
+      <button class="btn primary" id="trDownload" disabled>📦 Скачать отмеченные (ZIP)</button>
+    </section>
+    <section class="panel preview">
+      <div class="preview-head"><span>Фото</span><span class="dims" id="trCount">—</span></div>
+      <div class="tr-grid" id="trGrid">
+        <div class="empty-hint">Загрузите фото с мероприятия — покажу, что резкое, а что нет</div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ВКЛАДКА: СКАНЕР ДОКУМЕНТОВ -->
+  <main class="layout" id="tabScan" data-panel="scan" hidden>
+    <section class="panel controls">
+      <div class="dropzone" id="scDrop">
+        <input type="file" id="scFile" accept="image/*" hidden />
+        <div class="dz-inner">
+          <div class="dz-icon">📄</div>
+          <p><strong>Снимок документа</strong><br />выправлю перспективу</p>
+          <small id="scName">Файл не выбран</small>
+        </div>
+      </div>
+
+      <div class="group">
+        <small class="hint">Перетащите четыре угла на края листа. Затем нажмите «Выправить».</small>
+        <div class="row">
+          <button class="btn ghost" id="scReset">Углы по краям</button>
+          <button class="btn primary" id="scApply" disabled>Выправить</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <label class="group-title">Вид документа</label>
+        <div class="segmented" id="scMode">
+          <button class="seg active" data-m="photo">Как есть</button>
+          <button class="seg" data-m="doc">Бумага</button>
+          <button class="seg" data-m="bw">Чёрно-белый</button>
+        </div>
+        <label>Пропорции листа
+          <select id="scRatio">
+            <option value="0">Как получится</option>
+            <option value="0.7071" selected>A4 книжная</option>
+            <option value="1.4142">A4 альбомная</option>
+            <option value="1">Квадрат</option>
+          </select>
+        </label>
+      </div>
+
+      <button class="btn primary" id="scDownload" disabled>⬇ Скачать</button>
+    </section>
+    <section class="panel preview">
+      <div class="preview-head"><span id="scStage">Отметьте углы</span><span class="dims" id="scDims">—</span></div>
+      <div class="canvas-wrap">
+        <canvas id="scCanvas"></canvas>
+        <div class="empty-hint">Загрузите фото документа, снятого под углом</div>
+      </div>
+    </section>
+  </main>
+
   <!-- ВКЛАДКА: ПАСПОРТ ФОТО -->
   <main class="layout" id="tabExif" data-panel="exif" hidden>
     <section class="panel controls">
@@ -684,6 +879,10 @@
   <script src="exif.js"></script>
   <script src="tab-ba.js"></script>
   <script src="tab-blur.js"></script>
+  <script src="tab-join.js"></script>
+  <script src="tab-multi.js"></script>
+  <script src="tab-triage.js"></script>
+  <script src="tab-scan.js"></script>
   <script src="tab-exif.js"></script>
   <script src="tabs.js"></script>
 </body>
