@@ -15,7 +15,7 @@
     <div class="brand">
       <span class="logo">✦</span>
       <div>
-        <h1>Было&nbsp;→&nbsp;Стало <span class="ver" id="appVer">v3.1</span></h1>
+        <h1>Было&nbsp;→&nbsp;Стало <span class="ver" id="appVer">v3.2</span></h1>
         <p class="sub">Генератор плашек для фото · всё считается прямо в браузере</p>
       </div>
     </div>
@@ -29,7 +29,10 @@
     <button class="tab" data-tab="multi">📐 Мультиэкспорт</button>
     <button class="tab" data-tab="triage">⭐ Отбраковка</button>
     <button class="tab" data-tab="blur">🫥 Размытие лиц</button>
+    <button class="tab" data-tab="annot">✏️ Разметка</button>
     <button class="tab" data-tab="scan">📄 Сканер</button>
+    <button class="tab" data-tab="pdf">📕 PDF</button>
+    <button class="tab" data-tab="qr">🔳 QR-код</button>
     <button class="tab" data-tab="exif">🔎 Паспорт фото</button>
   </nav>
 
@@ -773,6 +776,182 @@
     </section>
   </main>
 
+  <!-- ВКЛАДКА: РАЗМЕТКА (скриншот-редактор) -->
+  <main class="layout" id="tabAnnot" data-panel="annot" hidden>
+    <section class="panel controls">
+      <div class="dropzone" id="anDrop">
+        <input type="file" id="anFile" accept="image/*" hidden />
+        <div class="dz-inner">
+          <div class="dz-icon">✏️</div>
+          <p><strong>Фото или скриншот</strong><br />или вставьте из буфера</p>
+          <small id="anName">Файл не выбран</small>
+        </div>
+      </div>
+
+      <div class="group">
+        <label class="group-title">Инструмент</label>
+        <div class="tool-grid" id="anTool">
+          <button class="tool active" data-t="arrow">➔ Стрелка</button>
+          <button class="tool" data-t="rect">▭ Рамка</button>
+          <button class="tool" data-t="ellipse">◯ Овал</button>
+          <button class="tool" data-t="line">╱ Линия</button>
+          <button class="tool" data-t="num">① Номер</button>
+          <button class="tool" data-t="text">T Текст</button>
+          <button class="tool" data-t="mark">▮ Маркер</button>
+          <button class="tool" data-t="blur">▨ Размыть</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <label class="group-title">Вид</label>
+        <div class="row">
+          <label class="color-row">Цвет <input type="color" id="anColor" value="#ff3b30" /></label>
+          <label class="switch"><input type="checkbox" id="anShadow" checked /> Тень</label>
+        </div>
+        <label>Толщина <span class="val" id="anWidthVal">4</span>
+          <input type="range" id="anWidth" min="1" max="20" value="4" />
+        </label>
+        <label>Размер текста <span class="val" id="anFontVal">28</span>
+          <input type="range" id="anFont" min="10" max="90" value="28" />
+        </label>
+        <label id="anCounterRow">Следующий номер
+          <input type="number" id="anCounter" value="1" min="1" max="99" />
+        </label>
+      </div>
+
+      <div class="group">
+        <label class="group-title">Объекты <span id="anCount">0</span></label>
+        <div class="row">
+          <button class="btn ghost" id="anUndo">↶ Отменить</button>
+          <button class="btn ghost" id="anClear">Очистить</button>
+        </div>
+        <small class="hint">Кликните по объекту, чтобы удалить его.</small>
+      </div>
+
+      <button class="btn primary" id="anDownload" disabled>⬇ Скачать</button>
+    </section>
+    <section class="panel preview">
+      <div class="preview-head"><span>Разметка</span><span class="dims" id="anDims">—</span></div>
+      <div class="canvas-wrap">
+        <canvas id="anCanvas"></canvas>
+        <div class="empty-hint">Загрузите скриншот или фото, чтобы поставить стрелки и пояснения</div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ВКЛАДКА: PDF -->
+  <main class="layout" id="tabPdf" data-panel="pdf" hidden>
+    <section class="panel controls">
+      <div class="dropzone" id="pdDrop">
+        <input type="file" id="pdFile" accept="image/*" multiple hidden />
+        <div class="dz-inner">
+          <div class="dz-icon">📕</div>
+          <p><strong>Перетащите фото</strong><br />соберу в один PDF</p>
+          <small id="pdName">Файлы не выбраны</small>
+        </div>
+      </div>
+      <div class="gallery" id="pdGallery" hidden>
+        <div class="gallery-head"><span id="pdCount">0 фото</span>
+          <button class="link-btn" id="pdClear">Очистить</button></div>
+        <div class="thumbs" id="pdThumbs"></div>
+        <small class="hint">Порядок страниц меняется перетаскиванием.</small>
+      </div>
+
+      <div class="group">
+        <label class="group-title">Страница</label>
+        <label>Формат
+          <select id="pdSize">
+            <option value="a4" selected>A4</option>
+            <option value="a5">A5</option>
+            <option value="letter">Letter</option>
+            <option value="auto">По размеру фото</option>
+          </select>
+        </label>
+        <div class="segmented" id="pdOrient">
+          <button class="seg active" data-o="p">Книжная</button>
+          <button class="seg" data-o="l">Альбомная</button>
+          <button class="seg" data-o="auto">По фото</button>
+        </div>
+        <label>Поля <span class="val" id="pdMarginVal">10 мм</span>
+          <input type="range" id="pdMargin" min="0" max="40" value="10" />
+        </label>
+        <label>Качество <span class="val" id="pdQVal">85%</span>
+          <input type="range" id="pdQ" min="50" max="100" value="85" />
+        </label>
+        <label>Ограничение по стороне
+          <select id="pdMaxSide">
+            <option value="0">Без ограничения</option>
+            <option value="2480">2480 px (A4, 300 dpi)</option>
+            <option value="1654" selected>1654 px (A4, 200 dpi)</option>
+            <option value="1240">1240 px (A4, 150 dpi)</option>
+          </select>
+        </label>
+      </div>
+
+      <button class="btn primary" id="pdDownload" disabled>📕 Собрать PDF</button>
+      <small class="hint" id="pdInfo"></small>
+    </section>
+    <section class="panel preview">
+      <div class="preview-head"><span>Страницы</span><span class="dims" id="pdDims">—</span></div>
+      <div class="tr-grid" id="pdList">
+        <div class="empty-hint">Загрузите фото — каждое станет отдельной страницей</div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ВКЛАДКА: QR-КОД -->
+  <main class="layout" id="tabQr" data-panel="qr" hidden>
+    <section class="panel controls">
+      <div class="group">
+        <label class="group-title">Что зашить в код</label>
+        <textarea id="qrText" rows="3" placeholder="https://example.ru или любой текст">https://nicegenn.github.io/Tynda_photo/</textarea>
+        <div class="presets">
+          <button class="chip qr-tpl" data-tpl="url">Ссылка</button>
+          <button class="chip qr-tpl" data-tpl="tel">Телефон</button>
+          <button class="chip qr-tpl" data-tpl="mail">Почта</button>
+          <button class="chip qr-tpl" data-tpl="wifi">Wi-Fi</button>
+        </div>
+      </div>
+
+      <div class="group">
+        <label class="group-title">Вид</label>
+        <div class="row">
+          <label class="color-row">Цвет <input type="color" id="qrFg" value="#0b1220" /></label>
+          <label class="color-row">Фон <input type="color" id="qrBg" value="#ffffff" /></label>
+        </div>
+        <label>Размер <span class="val" id="qrSizeVal">800 px</span>
+          <input type="range" id="qrSize" min="200" max="2000" step="50" value="800" />
+        </label>
+        <label>Поля <span class="val" id="qrQuietVal">4</span>
+          <input type="range" id="qrQuiet" min="0" max="8" value="4" />
+        </label>
+        <label>Запас прочности
+          <select id="qrEc">
+            <option value="L">Низкий — код мельче</option>
+            <option value="M" selected>Средний</option>
+            <option value="Q">Повышенный</option>
+            <option value="H">Высокий — можно с логотипом</option>
+          </select>
+        </label>
+        <label class="switch"><input type="checkbox" id="qrRound" /> Скруглённые точки</label>
+      </div>
+
+      <div class="group">
+        <label class="group-title">Подпись под кодом</label>
+        <input type="text" id="qrCaption" placeholder="например: Подробности на сайте" />
+      </div>
+
+      <button class="btn primary" id="qrDownload">⬇ Скачать PNG</button>
+    </section>
+    <section class="panel preview">
+      <div class="preview-head"><span>QR-код</span><span class="dims" id="qrDims">—</span></div>
+      <div class="canvas-wrap">
+        <canvas id="qrCanvas"></canvas>
+        <div class="empty-hint" id="qrHint">Введите текст или ссылку</div>
+      </div>
+    </section>
+  </main>
+
   <!-- ВКЛАДКА: ПАСПОРТ ФОТО -->
   <main class="layout" id="tabExif" data-panel="exif" hidden>
     <section class="panel controls">
@@ -883,6 +1062,10 @@
   <script src="tab-multi.js"></script>
   <script src="tab-triage.js"></script>
   <script src="tab-scan.js"></script>
+  <script src="pdfwriter.js"></script>
+  <script src="tab-annot.js"></script>
+  <script src="tab-pdf.js"></script>
+  <script src="tab-qr.js"></script>
   <script src="tab-exif.js"></script>
   <script src="tabs.js"></script>
 </body>
