@@ -147,30 +147,76 @@
     if (files.length) { e.preventDefault(); addFiles(files); }
   });
 
-  /* ---------- HEIC (iPhone) ---------- */
+  /* ---------- HEIC/HEIF (айфоны) ---------- */
   const isHeic = (f) => /image\/hei[cf]/i.test(f.type || '') || /\.hei[cf]$/i.test(f.name || '');
-  let heicLoading = null;
 
-  function loadHeicLib() {
-    if (window.heic2any) return Promise.resolve();
-    if (heicLoading) return heicLoading;
-    heicLoading = new Promise((res, rej) => {
+  const HEIC_ADVICE =
+    'Подсказка: на айфоне включите Настройки → Камера → Форматы → ' +
+    '«Наиболее совместимый», тогда снимки будут сразу в JPEG. ' +
+    'Либо перешлите фото через мессенджер — он обычно конвертирует сам.';
+
+  let libheifPromise = null;
+  function loadScriptOnce(src) {
+    return new Promise((res, rej) => {
       const s = document.createElement('script');
-      s.src = 'vendor/heic2any.min.js';
+      s.src = src;
       s.onload = res;
       s.onerror = () => rej(new Error('Не удалось загрузить декодер HEIC'));
       document.head.appendChild(s);
     });
-    return heicLoading;
+  }
+  /* libheif собран как фабрика: сначала грузим скрипт, потом инициализируем модуль */
+  function getLibheif() {
+    if (!libheifPromise) {
+      libheifPromise = loadScriptOnce('vendor/libheif-bundle.js')
+        .then(() => window.libheif())
+        .catch((e) => { libheifPromise = null; throw e; });
+    }
+    return libheifPromise;
   }
 
-  /* HEIC браузеры не открывают — декодируем в JPEG через heic2any */
+  /* Safari (и другие браузеры с поддержкой HEIC) справятся сами */
+  async function tryNativeDecode(file) {
+    try {
+      const bmp = await createImageBitmap(file);
+      const c = document.createElement('canvas');
+      c.width = bmp.width; c.height = bmp.height;
+      c.getContext('2d').drawImage(bmp, 0, 0);
+      bmp.close?.();
+      return c;
+    } catch { return null; }
+  }
+
+  async function decodeHeicToCanvas(file) {
+    const native = await tryNativeDecode(file);
+    if (native) return native;
+
+    const mod = await getLibheif();
+    const buf = new Uint8Array(await file.arrayBuffer());
+    const decoder = new mod.HeifDecoder();
+    const images = decoder.decode(buf);
+    if (!images || !images.length) throw new Error('В файле не найдено изображение');
+    const image = images[0];
+    const w = image.get_width(), h = image.get_height();
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const cx = c.getContext('2d');
+    const data = cx.createImageData(w, h);
+    await new Promise((res, rej) => {
+      image.display(data, (out) => out ? res() : rej(new Error('декодер не смог развернуть изображение')));
+    });
+    cx.putImageData(data, 0, 0);
+    try { image.free?.(); } catch { /* не критично */ }
+    return c;
+  }
+
+  /* HEIC приводим к JPEG, остальное отдаём как есть */
   async function toUsableFile(file) {
     if (!isHeic(file)) return file;
-    $('cFileName').textContent = 'Открываем HEIC…';
-    await loadHeicLib();
-    const out = await window.heic2any({ blob: file, toType: 'image/jpeg', quality: 0.95 });
-    const blob = Array.isArray(out) ? out[0] : out;
+    $('cFileName').textContent = `Открываем ${file.name}…`;
+    const canvas = await decodeHeicToCanvas(file);
+    const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.95));
+    if (!blob) throw new Error('не удалось пересохранить в JPEG');
     const name = (file.name || 'photo').replace(/\.hei[cf]$/i, '') + '.jpg';
     return new File([blob], name, { type: 'image/jpeg' });
   }
@@ -187,7 +233,8 @@
       try { file = await toUsableFile(orig); }
       catch (err) {
         console.error(err);
-        alert(`Не удалось открыть «${orig.name}».\n${err.message || err}`);
+        const why = String(err && err.message || err).replace(/^Error:\s*/, '');
+        alert(`Не удалось открыть «${orig.name}»:\n${why}\n\n${isHeic(orig) ? HEIC_ADVICE : ''}`);
         done(); return;
       }
       const url = URL.createObjectURL(file);
