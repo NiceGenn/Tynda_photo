@@ -15,13 +15,18 @@
     <div class="brand">
       <span class="logo">✦</span>
       <div>
-        <h1>Было&nbsp;→&nbsp;Стало <span class="ver" id="appVer">v1.9</span></h1>
+        <h1>Было&nbsp;→&nbsp;Стало <span class="ver" id="appVer">v2.0</span></h1>
         <p class="sub">Генератор плашек для фото · всё считается прямо в браузере</p>
       </div>
     </div>
   </header>
 
-  <main class="layout">
+  <nav class="tabs" id="tabs">
+    <button class="tab active" data-tab="plates">🖼 Плашки</button>
+    <button class="tab" data-tab="compress">🗜 Сжатие фото</button>
+  </nav>
+
+  <main class="layout" id="tabPlates">
     <!-- ЛЕВАЯ ПАНЕЛЬ: настройки -->
     <section class="panel controls">
       <div class="dropzone" id="dropzone">
@@ -305,6 +310,76 @@
     </section>
   </main>
 
+  <!-- ВКЛАДКА: СЖАТИЕ ФОТО -->
+  <main class="layout" id="tabCompress" hidden>
+    <section class="panel controls">
+      <div class="dropzone" id="cDropzone">
+        <input type="file" id="cFileInput" accept="image/*" multiple hidden />
+        <div class="dz-inner">
+          <div class="dz-icon">🗜</div>
+          <p><strong>Перетащите тяжёлые фото</strong><br />можно несколько сразу</p>
+          <small id="cFileName">Файлы не выбраны</small>
+        </div>
+      </div>
+
+      <div class="group">
+        <label class="group-title">Насколько сжимать</label>
+        <div class="segmented" id="cPreset">
+          <button class="seg active" data-preset="safe">Бережно</button>
+          <button class="seg" data-preset="balanced">Оптимально</button>
+          <button class="seg" data-preset="max">Максимум</button>
+          <button class="seg" data-preset="custom">Свои</button>
+        </div>
+        <small class="hint" id="cPresetHint">Без уменьшения размера, качество 92% — разницу на глаз не видно.</small>
+      </div>
+
+      <div class="group">
+        <label class="group-title">Параметры</label>
+        <label>Максимальная сторона
+          <select id="cMaxSide">
+            <option value="0">Не уменьшать</option>
+            <option value="3840">3840 px (4K)</option>
+            <option value="2560">2560 px</option>
+            <option value="1920">1920 px (Full HD)</option>
+            <option value="1600">1600 px</option>
+            <option value="1280">1280 px</option>
+          </select>
+        </label>
+        <label>Формат
+          <select id="cFormat">
+            <option value="auto" selected>Авто — умный выбор</option>
+            <option value="image/jpeg">JPG</option>
+            <option value="image/webp">WebP (меньше всего весит)</option>
+            <option value="image/png">PNG (без потерь, но тяжёлый)</option>
+            <option value="keep">Как в оригинале</option>
+          </select>
+        </label>
+        <label>Качество <span class="val" id="cQualityVal">92%</span>
+          <input type="range" id="cQuality" min="50" max="100" value="92" />
+        </label>
+        <label class="switch">
+          <input type="checkbox" id="cNeverBigger" checked />
+          Не отдавать файл больше оригинала
+        </label>
+      </div>
+
+      <div class="group">
+        <button class="btn primary" id="cDownloadZip" disabled>📦 Скачать все (ZIP)</button>
+        <button class="btn ghost" id="cClear">Очистить список</button>
+      </div>
+    </section>
+
+    <section class="panel preview">
+      <div class="preview-head">
+        <span>Результат</span>
+        <span class="dims" id="cTotal">—</span>
+      </div>
+      <div class="c-list" id="cList">
+        <div class="empty-hint">Загрузите фото, чтобы посмотреть, насколько их получится сжать</div>
+      </div>
+    </section>
+  </main>
+
   <footer class="foot">
     Считается локально · фото никуда не отправляются · <a href="https://github.com/NiceGenn/Tynda_photo" target="_blank" rel="noopener">GitHub</a>
   </footer>
@@ -314,5 +389,6 @@
 
   <script src="zip.js"></script>
   <script src="app.js"></script>
+  <script src="compress.js"></script>
 </body>
 </html>

@@ -13,6 +13,10 @@
 
 * { box-sizing: border-box; }
 
+/* Атрибут hidden должен побеждать наши display:grid/flex — иначе скрытые
+   блоки (вкладки, галерея, настройки коллажа) остаются видимыми. */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   background: radial-gradient(1200px 600px at 15% -10%, #14304a 0%, transparent 55%),
@@ -22,11 +26,11 @@ body {
   min-height: 100vh;
 }
 
-/* Topbar — заголовок строго по центру, логотип у левого края */
-.topbar { padding: 20px 28px; border-bottom: 1px solid var(--line); position: relative; }
-.brand { display: flex; align-items: center; justify-content: center; text-align: center; }
+/* Topbar — логотип и заголовок вместе, по центру */
+.topbar { padding: 20px 28px; border-bottom: 1px solid var(--line); }
+.brand { display: flex; align-items: center; gap: 14px; justify-content: center; text-align: center; }
 .logo {
-  position: absolute; left: 28px; top: 50%; transform: translateY(-50%);
+  flex: none;
   width: 42px; height: 42px; display: grid; place-items: center;
   font-size: 22px; border-radius: 12px;
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
@@ -41,6 +45,50 @@ body {
 }
 .sub { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
 
+/* Вкладки */
+.tabs {
+  display: flex; gap: 8px; justify-content: center;
+  padding: 14px 28px 0; max-width: 1400px; margin: 0 auto;
+}
+.tab {
+  background: var(--panel); color: var(--muted);
+  border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px 18px; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.tab:hover { color: var(--text); border-color: var(--accent); }
+.tab.active {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #fff; border-color: transparent;
+}
+
+/* Список сжатия */
+.c-list { display: flex; flex-direction: column; gap: 8px; position: relative; min-height: 200px; }
+.c-row {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: 10px; padding: 8px 10px;
+}
+.c-thumb { width: 46px; height: 46px; object-fit: cover; border-radius: 7px; flex: none; }
+.c-info { flex: 1; min-width: 0; }
+.c-name {
+  font-size: 13px; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.c-meta { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.c-meta b { color: var(--accent); }
+.c-badge {
+  flex: none; font-size: 12px; font-weight: 700; color: #fff;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  border-radius: 20px; padding: 4px 10px;
+}
+.c-badge.keep { background: var(--line); color: var(--muted); }
+.c-dl, .c-rm {
+  flex: none; width: 30px; height: 30px; border-radius: 8px; cursor: pointer;
+  background: var(--panel); color: var(--text); border: 1px solid var(--line); font-size: 14px;
+}
+.c-dl:hover { border-color: var(--accent); }
+.c-rm:hover { border-color: #ff5d73; color: #ff5d73; }
+
 /* Layout */
 .layout {
   display: grid;
@@ -53,8 +101,8 @@ body {
 }
 @media (max-width: 900px) {
   .topbar { padding: 12px 16px; }
-  .logo { left: 14px; width: 36px; height: 36px; font-size: 18px; }
-  .brand { padding: 0 44px; }        /* место под логотип, текст остаётся по центру */
+  .logo { width: 34px; height: 34px; font-size: 17px; }
+  .brand { gap: 10px; }
   .brand h1 { font-size: 17px; }
   .sub { font-size: 11px; }
   .layout { grid-template-columns: 1fr; padding: 0 12px 40px; gap: 12px; }
