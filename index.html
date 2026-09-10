@@ -15,7 +15,7 @@
     <div class="brand">
       <span class="logo">✦</span>
       <div>
-        <h1>Было&nbsp;→&nbsp;Стало <span class="ver" id="appVer">v2.3</span></h1>
+        <h1>Было&nbsp;→&nbsp;Стало <span class="ver" id="appVer">v3.0</span></h1>
         <p class="sub">Генератор плашек для фото · всё считается прямо в браузере</p>
       </div>
     </div>
@@ -23,10 +23,13 @@
 
   <nav class="tabs" id="tabs">
     <button class="tab active" data-tab="plates">🖼 Плашки</button>
-    <button class="tab" data-tab="compress">🗜 Сжатие фото</button>
+    <button class="tab" data-tab="compress">🗜 Сжатие</button>
+    <button class="tab" data-tab="ba">↔️ До / После</button>
+    <button class="tab" data-tab="blur">🫥 Размытие лиц</button>
+    <button class="tab" data-tab="exif">🔎 Паспорт фото</button>
   </nav>
 
-  <main class="layout" id="tabPlates">
+  <main class="layout" id="tabPlates" data-panel="plates">
     <!-- ЛЕВАЯ ПАНЕЛЬ: настройки -->
     <section class="panel controls">
       <div class="dropzone" id="dropzone">
@@ -311,7 +314,7 @@
   </main>
 
   <!-- ВКЛАДКА: СЖАТИЕ ФОТО -->
-  <main class="layout" id="tabCompress" hidden>
+  <main class="layout" id="tabCompress" data-panel="compress" hidden>
     <section class="panel controls">
       <div class="dropzone" id="cDropzone">
         <input type="file" id="cFileInput" accept="image/*" multiple hidden />
@@ -456,6 +459,154 @@
     </section>
   </main>
 
+  <!-- ВКЛАДКА: ДО / ПОСЛЕ -->
+  <main class="layout" id="tabBa" data-panel="ba" hidden>
+    <section class="panel controls">
+      <div class="row">
+        <div class="dropzone half" id="baDropA">
+          <input type="file" id="baFileA" accept="image/*" hidden />
+          <div class="dz-inner"><div class="dz-icon">1️⃣</div><p><strong>БЫЛО</strong></p><small id="baNameA">не выбрано</small></div>
+        </div>
+        <div class="dropzone half" id="baDropB">
+          <input type="file" id="baFileB" accept="image/*" hidden />
+          <div class="dz-inner"><div class="dz-icon">2️⃣</div><p><strong>СТАЛО</strong></p><small id="baNameB">не выбрано</small></div>
+        </div>
+      </div>
+      <button class="btn ghost" id="baSwap">⇄ Поменять местами</button>
+
+      <div class="group">
+        <label class="group-title">Как разделить</label>
+        <div class="segmented" id="baLayout">
+          <button class="seg active" data-l="v">Пополам ↕</button>
+          <button class="seg" data-l="h">Пополам ↔</button>
+          <button class="seg" data-l="d">По диагонали</button>
+        </div>
+        <label>Положение границы <span class="val" id="baSplitVal">50%</span>
+          <input type="range" id="baSplit" min="10" max="90" value="50" />
+        </label>
+        <label>Толщина линии <span class="val" id="baLineVal">6 px</span>
+          <input type="range" id="baLine" min="0" max="30" value="6" />
+        </label>
+        <label class="color-row">Цвет линии <input type="color" id="baLineColor" value="#ffffff" /></label>
+      </div>
+
+      <div class="group">
+        <label class="group-title">Подписи</label>
+        <label class="switch"><input type="checkbox" id="baLabels" checked /> Показывать</label>
+        <div class="row">
+          <label>Слева/сверху <input type="text" id="baLabelA" value="БЫЛО" /></label>
+          <label>Справа/снизу <input type="text" id="baLabelB" value="СТАЛО" /></label>
+        </div>
+        <label>Размер <span class="val" id="baLabelSizeVal">6%</span>
+          <input type="range" id="baLabelSize" min="3" max="15" value="6" />
+        </label>
+      </div>
+
+      <div class="group">
+        <label class="group-title">Размер картинки</label>
+        <div class="row">
+          <label>Ширина <input type="number" id="baW" value="1200" min="200" max="4000" /></label>
+          <label>Высота <input type="number" id="baH" value="800" min="200" max="4000" /></label>
+        </div>
+        <div class="presets">
+          <button class="chip ba-size" data-w="1200" data-h="800">1200×800</button>
+          <button class="chip ba-size" data-w="1000" data-h="675">1000×675</button>
+          <button class="chip ba-size" data-w="1080" data-h="1080">1080×1080</button>
+          <button class="chip ba-size" data-w="1080" data-h="1920">Stories</button>
+        </div>
+      </div>
+
+      <button class="btn primary" id="baDownload" disabled>⬇ Скачать</button>
+    </section>
+
+    <section class="panel preview">
+      <div class="preview-head"><span>Предпросмотр</span><span class="dims" id="baDims">—</span></div>
+      <div class="canvas-wrap">
+        <canvas id="baCanvas"></canvas>
+        <div class="empty-hint">Загрузите два фото: «было» и «стало»</div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ВКЛАДКА: РАЗМЫТИЕ ЛИЦ И НОМЕРОВ -->
+  <main class="layout" id="tabBlur" data-panel="blur" hidden>
+    <section class="panel controls">
+      <div class="dropzone" id="blDrop">
+        <input type="file" id="blFile" accept="image/*" hidden />
+        <div class="dz-inner">
+          <div class="dz-icon">🫥</div>
+          <p><strong>Перетащите фото</strong><br />или вставьте из буфера</p>
+          <small id="blName">Файл не выбран</small>
+        </div>
+      </div>
+
+      <div class="group">
+        <label class="group-title">Чем закрывать</label>
+        <div class="segmented" id="blMode">
+          <button class="seg active" data-m="blur">Размытие</button>
+          <button class="seg" data-m="pixel">Пиксели</button>
+          <button class="seg" data-m="fill">Заливка</button>
+        </div>
+        <div class="segmented" id="blShape">
+          <button class="seg active" data-s="rect">Прямоугольник</button>
+          <button class="seg" data-s="ellipse">Овал</button>
+        </div>
+        <label>Сила <span class="val" id="blStrengthVal">50</span>
+          <input type="range" id="blStrength" min="5" max="100" value="50" />
+        </label>
+        <label class="color-row" id="blColorRow" hidden>Цвет заливки <input type="color" id="blColor" value="#111827" /></label>
+      </div>
+
+      <div class="group">
+        <label class="group-title">Области <span id="blCount">0</span></label>
+        <small class="hint">Обведите мышкой лицо, номер машины или документ — область закроется. Кликните по готовой области, чтобы убрать её.</small>
+        <div class="row">
+          <button class="btn ghost" id="blUndo">↶ Убрать последнюю</button>
+          <button class="btn ghost" id="blClear">Очистить все</button>
+        </div>
+      </div>
+
+      <button class="btn primary" id="blDownload" disabled>⬇ Скачать</button>
+    </section>
+
+    <section class="panel preview">
+      <div class="preview-head"><span>Фото</span><span class="dims" id="blDims">—</span></div>
+      <div class="canvas-wrap">
+        <canvas id="blCanvas"></canvas>
+        <div class="empty-hint">Загрузите фото, чтобы закрыть на нём лица или номера</div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ВКЛАДКА: ПАСПОРТ ФОТО -->
+  <main class="layout" id="tabExif" data-panel="exif" hidden>
+    <section class="panel controls">
+      <div class="dropzone" id="exDrop">
+        <input type="file" id="exFile" accept="image/*" multiple hidden />
+        <div class="dz-inner">
+          <div class="dz-icon">🔎</div>
+          <p><strong>Перетащите фото</strong><br />можно несколько сразу</p>
+          <small id="exName">Файлы не выбраны</small>
+        </div>
+      </div>
+      <div class="group">
+        <small class="hint">
+          Показывает, когда и чем снято фото и где это было. Помогает проверить
+          снимки, присланные читателями: настоящая ли дата и то ли это место.
+          Данные читаются только в вашем браузере.
+        </small>
+        <button class="btn ghost" id="exClear">Очистить</button>
+      </div>
+    </section>
+
+    <section class="panel preview">
+      <div class="preview-head"><span>Что удалось узнать</span><span class="dims" id="exCount">—</span></div>
+      <div class="c-list" id="exList">
+        <div class="empty-hint">Загрузите фото, чтобы посмотреть его данные</div>
+      </div>
+    </section>
+  </main>
+
   <footer class="foot">
     Считается локально · фото никуда не отправляются · <a href="https://github.com/NiceGenn/Tynda_photo" target="_blank" rel="noopener">GitHub</a>
   </footer>
@@ -530,5 +681,10 @@
   <script src="editor.js"></script>
   <script src="app.js"></script>
   <script src="compress.js"></script>
+  <script src="exif.js"></script>
+  <script src="tab-ba.js"></script>
+  <script src="tab-blur.js"></script>
+  <script src="tab-exif.js"></script>
+  <script src="tabs.js"></script>
 </body>
 </html>

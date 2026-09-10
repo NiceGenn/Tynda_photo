@@ -655,15 +655,5 @@
     btn.disabled = false; btn.textContent = label;
   });
 
-  /* ---------- Вкладки ---------- */
-  document.querySelectorAll('#tabs .tab').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const t = btn.dataset.tab;
-      document.querySelectorAll('#tabs .tab').forEach((b) => b.classList.toggle('active', b === btn));
-      $('tabPlates').hidden = t !== 'plates';
-      $('tabCompress').hidden = t !== 'compress';
-    });
-  });
-
   applyPreset('safe');
 })();
