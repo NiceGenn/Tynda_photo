@@ -15,7 +15,7 @@
     <div class="brand">
       <span class="logo">✦</span>
       <div>
-        <h1>Было&nbsp;→&nbsp;Стало <span class="ver" id="appVer">v2.1</span></h1>
+        <h1>Было&nbsp;→&nbsp;Стало <span class="ver" id="appVer">v2.2</span></h1>
         <p class="sub">Генератор плашек для фото · всё считается прямо в браузере</p>
       </div>
     </div>
@@ -331,6 +331,12 @@
           <button class="seg" data-preset="custom">Свои</button>
         </div>
         <small class="hint" id="cPresetHint">Без уменьшения размера, качество 92% — разницу на глаз не видно.</small>
+        <div class="presets">
+          <button class="chip" data-profile="site">Для сайта</button>
+          <button class="chip" data-profile="vk">Для ВК</button>
+          <button class="chip" data-profile="tg">Для Telegram</button>
+          <button class="chip" data-profile="mail">Для почты</button>
+        </div>
       </div>
 
       <div class="group">
@@ -381,6 +387,46 @@
           <input type="checkbox" id="cNeverBigger" checked />
           Не отдавать файл больше оригинала
         </label>
+        <label class="switch">
+          <input type="checkbox" id="cSharpen" />
+          Повысить резкость после уменьшения
+        </label>
+        <small class="hint" id="cSharpenHint" hidden>Фото сильно уменьшается — резкость обычно стоит поднять.</small>
+      </div>
+
+      <!-- Водяной знак -->
+      <div class="group">
+        <label class="group-title">Водяной знак</label>
+        <div class="segmented" id="cWmMode">
+          <button class="seg active" data-wm="off">Нет</button>
+          <button class="seg" data-wm="text">Текст</button>
+          <button class="seg" data-wm="logo">Логотип</button>
+        </div>
+        <div class="wm-part" data-wm="text" hidden>
+          <input type="text" id="cWmText" placeholder="© Тында, 2026" />
+          <label class="color-row">Цвет <input type="color" id="cWmColor" value="#ffffff" /></label>
+        </div>
+        <div class="wm-part" data-wm="logo" hidden>
+          <input type="file" id="cWmLogo" accept="image/*" />
+          <small class="hint" id="cWmLogoName">Файл логотипа не выбран</small>
+        </div>
+        <div class="wm-part" data-wm="text logo" hidden>
+          <label>Положение
+            <select id="cWmPos">
+              <option value="tl">↖ сверху слева</option>
+              <option value="tr">↗ сверху справа</option>
+              <option value="bl">↙ снизу слева</option>
+              <option value="br" selected>↘ снизу справа</option>
+              <option value="mc">• по центру</option>
+            </select>
+          </label>
+          <label>Размер <span class="val" id="cWmSizeVal">8%</span>
+            <input type="range" id="cWmSize" min="2" max="30" value="8" />
+          </label>
+          <label>Непрозрачность <span class="val" id="cWmOpacityVal">70%</span>
+            <input type="range" id="cWmOpacity" min="10" max="100" value="70" />
+          </label>
+        </div>
       </div>
 
       <div class="group">
@@ -417,6 +463,50 @@
   <!-- всплывающий выбор фото для ячейки коллажа -->
   <div id="cellPicker" class="cell-picker" hidden></div>
 
+  <!-- редактор: кадрирование, горизонт, коррекция -->
+  <div id="edModal" class="ed-modal" hidden>
+    <div class="ed-box">
+      <div class="ed-head">
+        <span id="edTitle">Редактор</span>
+        <button class="cmp-close" id="edClose" title="Закрыть">×</button>
+      </div>
+      <div class="ed-body">
+        <div class="ed-stage"><canvas id="edCanvas"></canvas></div>
+        <div class="ed-side">
+          <label class="group-title">Пропорции кадра</label>
+          <div class="presets" id="edAspect">
+            <button class="chip on" data-a="0">Свободно</button>
+            <button class="chip" data-a="1">1:1</button>
+            <button class="chip" data-a="1.3333">4:3</button>
+            <button class="chip" data-a="1.5">3:2</button>
+            <button class="chip" data-a="1.7778">16:9</button>
+            <button class="chip" data-a="0.5625">9:16</button>
+          </div>
+          <label>Горизонт <span class="val" id="edAngleVal">0.0°</span>
+            <input type="range" id="edAngle" min="-15" max="15" step="0.1" value="0" />
+          </label>
+          <label class="group-title">Коррекция</label>
+          <label>Яркость <span class="val" id="edBrightVal">100%</span>
+            <input type="range" id="edBright" min="50" max="160" value="100" />
+          </label>
+          <label>Контраст <span class="val" id="edContrastVal">100%</span>
+            <input type="range" id="edContrast" min="50" max="180" value="100" />
+          </label>
+          <label>Насыщенность <span class="val" id="edSatVal">100%</span>
+            <input type="range" id="edSat" min="0" max="200" value="100" />
+          </label>
+          <label class="switch"><input type="checkbox" id="edAuto" /> Автоконтраст</label>
+          <small class="hint">Кадр тяните мышкой, углы — за квадратики. <span id="edSize">—</span></small>
+          <div class="row">
+            <button class="btn ghost" id="edReset">Сбросить</button>
+            <button class="btn ghost" id="edCancel">Отмена</button>
+          </div>
+          <button class="btn primary" id="edApply">Применить</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- сравнение «оригинал / сжатое» -->
   <div id="cmpModal" class="cmp-modal" hidden>
     <div class="cmp-box">
@@ -437,6 +527,7 @@
   </div>
 
   <script src="zip.js"></script>
+  <script src="editor.js"></script>
   <script src="app.js"></script>
   <script src="compress.js"></script>
 </body>

@@ -69,6 +69,57 @@
     chip.addEventListener('click', () => { $('cTargetKb').value = chip.dataset.kb; scheduleProcess(); });
   });
 
+  /* Готовые профили под площадки */
+  const PROFILES = {
+    site: { maxSide: 1920, goal: 'size', kb: 500, format: 'auto',
+      hint: 'Для сайта: до 1920 px и не тяжелее 500 КБ — страница грузится быстро.' },
+    vk: { maxSide: 2560, goal: 'quality', quality: 87, format: 'image/jpeg',
+      hint: 'Для ВКонтакте: до 2560 px, JPG 87% — соцсеть пережмёт сама, запас качества оставлен.' },
+    tg: { maxSide: 1280, goal: 'size', kb: 300, format: 'image/jpeg',
+      hint: 'Для Telegram: до 1280 px и 300 КБ — как раз под сжатие мессенджера.' },
+    mail: { maxSide: 1600, goal: 'size', kb: 1000, format: 'image/jpeg',
+      hint: 'Для почты: до 1600 px и 1 МБ — вложение точно пройдёт по лимиту.' },
+  };
+  document.querySelectorAll('[data-profile]').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      const p = PROFILES[chip.dataset.profile];
+      $('cMaxSide').value = String(p.maxSide);
+      $('cFormat').value = p.format;
+      if (p.goal === 'size') { $('cTargetKb').value = String(p.kb); setGoal('size'); }
+      else { $('cQuality').value = String(p.quality); $('cQualityVal').textContent = p.quality + '%'; setGoal('quality'); }
+      markCustom();
+      $('cPresetHint').textContent = p.hint;
+      scheduleProcess();
+    });
+  });
+
+  /* Водяной знак */
+  let wmLogo = null, wmLogoId = '';
+  function setWmMode(mode) {
+    document.querySelectorAll('#cWmMode .seg').forEach((b) => b.classList.toggle('active', b.dataset.wm === mode));
+    document.querySelectorAll('.wm-part').forEach((el) => {
+      el.hidden = !el.dataset.wm.split(' ').includes(mode);
+    });
+  }
+  document.querySelectorAll('#cWmMode .seg').forEach((btn) => {
+    btn.addEventListener('click', () => { setWmMode(btn.dataset.wm); scheduleProcess(); });
+  });
+  $('cWmLogo').addEventListener('change', (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const im = new Image();
+    im.onload = () => { wmLogo = im; wmLogoId = f.name + f.size; $('cWmLogoName').textContent = f.name; scheduleProcess(); };
+    im.src = URL.createObjectURL(f);
+  });
+  ['cWmText', 'cWmColor', 'cWmPos', 'cWmSize', 'cWmOpacity'].forEach((id) => {
+    $(id).addEventListener('input', () => {
+      if (id === 'cWmSize') $('cWmSizeVal').textContent = $('cWmSize').value + '%';
+      if (id === 'cWmOpacity') $('cWmOpacityVal').textContent = $('cWmOpacity').value + '%';
+      scheduleProcess();
+    });
+  });
+  $('cSharpen').addEventListener('change', scheduleProcess);
+
   ['cMaxSide', 'cFormat', 'cQuality', 'cNeverBigger', 'cTargetKb'].forEach((id) => {
     $(id).addEventListener('input', () => {
       if (id === 'cQuality') $('cQualityVal').textContent = $('cQuality').value + '%';
@@ -96,23 +147,62 @@
     if (files.length) { e.preventDefault(); addFiles(files); }
   });
 
+  /* ---------- HEIC (iPhone) ---------- */
+  const isHeic = (f) => /image\/hei[cf]/i.test(f.type || '') || /\.hei[cf]$/i.test(f.name || '');
+  let heicLoading = null;
+
+  function loadHeicLib() {
+    if (window.heic2any) return Promise.resolve();
+    if (heicLoading) return heicLoading;
+    heicLoading = new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'vendor/heic2any.min.js';
+      s.onload = res;
+      s.onerror = () => rej(new Error('Не удалось загрузить декодер HEIC'));
+      document.head.appendChild(s);
+    });
+    return heicLoading;
+  }
+
+  /* HEIC браузеры не открывают — декодируем в JPEG через heic2any */
+  async function toUsableFile(file) {
+    if (!isHeic(file)) return file;
+    $('cFileName').textContent = 'Открываем HEIC…';
+    await loadHeicLib();
+    const out = await window.heic2any({ blob: file, toType: 'image/jpeg', quality: 0.95 });
+    const blob = Array.isArray(out) ? out[0] : out;
+    const name = (file.name || 'photo').replace(/\.hei[cf]$/i, '') + '.jpg';
+    return new File([blob], name, { type: 'image/jpeg' });
+  }
+
   function addFiles(list) {
-    const files = [...list].filter((f) => f.type.startsWith('image/'));
+    // HEIC не проходит проверку по типу — пропускаем его отдельно
+    const files = [...list].filter((f) => f.type.startsWith('image/') || isHeic(f));
     if (!files.length) return;
     let pending = files.length;
-    files.forEach((file) => {
+    const done = () => { if (--pending === 0) { renderList(); scheduleProcess(); } };
+
+    files.forEach(async (orig) => {
+      let file = orig;
+      try { file = await toUsableFile(orig); }
+      catch (err) {
+        console.error(err);
+        alert(`Не удалось открыть «${orig.name}».\n${err.message || err}`);
+        done(); return;
+      }
       const url = URL.createObjectURL(file);
       const img = new Image();
       img.onload = () => {
         cState.items.push({
           id: ++cUid, name: file.name || 'clipboard.png', file, img, url,
-          origSize: file.size, origType: file.type,
-          rot: 0, flip: false,
+          origSize: orig.size, origType: file.type,
+          fromHeic: file !== orig,
+          rot: 0, flip: false, edit: null, edited: null,
           out: null, outSize: 0, outExt: '', sig: '',
         });
-        if (--pending === 0) { renderList(); scheduleProcess(); }
+        done();
       };
-      img.onerror = () => { URL.revokeObjectURL(url); if (--pending === 0) { renderList(); scheduleProcess(); } };
+      img.onerror = () => { URL.revokeObjectURL(url); done(); };
       img.src = url;
     });
   }
@@ -122,6 +212,8 @@
     cState.items = [];
     renderList();
   });
+
+  setWmMode('off');
 
   /* ---------- Поворот ---------- */
   function rotate(it, deg) {
@@ -140,16 +232,30 @@
 
   /* ---------- Сжатие ---------- */
   function readOpts() {
+    const wmMode = (document.querySelector('#cWmMode .seg.active') || {}).dataset?.wm || 'off';
     return {
       maxSide: +$('cMaxSide').value || 0,
       quality: +$('cQuality').value / 100,
       format: $('cFormat').value,
       neverBigger: $('cNeverBigger').checked,
+      sharpen: $('cSharpen').checked,
       goal: currentGoal(),
       targetBytes: Math.max(20, +$('cTargetKb').value || 500) * 1024,
+      wm: {
+        mode: wmMode,
+        text: $('cWmText').value.trim(),
+        color: $('cWmColor').value,
+        logo: wmLogo,
+        pos: $('cWmPos').value,
+        size: +$('cWmSize').value / 100,
+        opacity: +$('cWmOpacity').value / 100,
+      },
     };
   }
-  const optsSig = (o) => [o.maxSide, o.quality, o.format, o.neverBigger, o.goal, o.targetBytes].join('|');
+  const optsSig = (o) => [
+    o.maxSide, o.quality, o.format, o.neverBigger, o.sharpen, o.goal, o.targetBytes,
+    o.wm.mode, o.wm.text, o.wm.color, o.wm.pos, o.wm.size, o.wm.opacity, wmLogoId,
+  ].join('|');
 
   /* Пошаговое уменьшение вдвое — так меньше «лесенки», чем при одном drawImage */
   function drawScaled(img, w, h) {
@@ -190,6 +296,64 @@
   const EXT = { 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/png': 'png' };
   const toBlob = (cv, type, q) => new Promise((r) => cv.toBlob(r, type, q));
 
+  /* Нерезкое маскирование: уменьшенная картинка всегда чуть мылится */
+  function sharpen(cv, amount = 0.6) {
+    const w = cv.width, h = cv.height;
+    const blur = document.createElement('canvas');
+    blur.width = w; blur.height = h;
+    const bx = blur.getContext('2d');
+    bx.filter = 'blur(1px)';
+    bx.drawImage(cv, 0, 0);
+    const cx = cv.getContext('2d');
+    const a = cx.getImageData(0, 0, w, h);
+    const b = bx.getImageData(0, 0, w, h);
+    const da = a.data, db = b.data;
+    for (let i = 0; i < da.length; i += 4) {
+      da[i] += (da[i] - db[i]) * amount;
+      da[i + 1] += (da[i + 1] - db[i + 1]) * amount;
+      da[i + 2] += (da[i + 2] - db[i + 2]) * amount;
+    }
+    cx.putImageData(a, 0, 0);
+    return cv;
+  }
+
+  /* Водяной знак поверх готового кадра */
+  function drawWatermark(cv, wm) {
+    if (!wm || wm.mode === 'off') return cv;
+    const x = cv.getContext('2d');
+    const minSide = Math.min(cv.width, cv.height);
+    const pad = minSide * 0.03;
+    x.save();
+    x.globalAlpha = wm.opacity;
+
+    let w, h, drawFn;
+    if (wm.mode === 'text') {
+      if (!wm.text) { x.restore(); return cv; }
+      const size = minSide * wm.size;
+      x.font = `700 ${size}px system-ui, sans-serif`;
+      x.textBaseline = 'top';
+      w = x.measureText(wm.text).width;
+      h = size * 1.2;
+      drawFn = (px, py) => {
+        x.shadowColor = 'rgba(0,0,0,0.55)';
+        x.shadowBlur = size * 0.25;
+        x.fillStyle = wm.color;
+        x.fillText(wm.text, px, py);
+      };
+    } else {
+      if (!wm.logo) { x.restore(); return cv; }
+      w = minSide * wm.size * 4;
+      h = w * (wm.logo.height / wm.logo.width);
+      drawFn = (px, py) => x.drawImage(wm.logo, px, py, w, h);
+    }
+
+    const posX = { tl: pad, bl: pad, tr: cv.width - w - pad, br: cv.width - w - pad, mc: (cv.width - w) / 2 }[wm.pos];
+    const posY = { tl: pad, tr: pad, bl: cv.height - h - pad, br: cv.height - h - pad, mc: (cv.height - h) / 2 }[wm.pos];
+    drawFn(posX, posY);
+    x.restore();
+    return cv;
+  }
+
   /* Подбор максимального качества, укладывающегося в заданный вес */
   async function encodeToTarget(cv, type, targetBytes) {
     let lo = 0.3, hi = 0.96, best = null;
@@ -226,13 +390,18 @@
     // у PNG нет параметра качества — под заданный вес он не подстраивается
     if (opts.goal === 'size' && type === 'image/png') type = 'image/webp';
 
-    let w = it.img.width, h = it.img.height;
+    const srcImg = it.edited || it.img;          // после кадрирования/коррекции
+    let w = srcImg.width, h = srcImg.height;
     if (opts.maxSide && Math.max(w, h) > opts.maxSide) {
       const k = opts.maxSide / Math.max(w, h);
       w = Math.max(1, Math.round(w * k));
       h = Math.max(1, Math.round(h * k));
     }
-    let cv = applyTransform(drawScaled(it.img, w, h), it.rot, it.flip);
+    let cv = applyTransform(drawScaled(srcImg, w, h), it.rot, it.flip);
+
+    const shrink = w / srcImg.width;
+    if (opts.sharpen && shrink < 0.99) sharpen(cv, 0.5 + (1 - shrink) * 0.4);
+    cv = drawWatermark(cv, opts.wm);
 
     let blob;
     if (opts.goal === 'size') {
@@ -243,8 +412,9 @@
     }
     if (!blob) { blob = await toBlob(cv, 'image/jpeg', opts.quality || 0.9); type = 'image/jpeg'; }
 
-    // если сжатие не помогло — отдаём оригинал как есть (но только если фото не крутили)
-    if (opts.neverBigger && blob.size >= it.origSize && !it.rot && !it.flip) {
+    // если сжатие не помогло — отдаём оригинал (но только когда фото ничем не изменяли)
+    const untouched = !it.rot && !it.flip && !it.edited && opts.wm.mode === 'off' && !it.fromHeic;
+    if (opts.neverBigger && blob.size >= it.origSize && untouched) {
       it.out = it.file; it.outSize = it.origSize;
       it.outExt = (it.name.split('.').pop() || 'jpg').toLowerCase();
       it.outW = it.img.width; it.outH = it.img.height;
@@ -325,12 +495,14 @@
           </div>
         </div>
         ${badge}
+        <button class="c-btn c-ed${it.edited ? ' on' : ''}" title="Кадрировать, выровнять, подкрутить цвет">✎</button>
         <button class="c-btn c-rl" title="Повернуть влево">↺</button>
         <button class="c-btn c-rr" title="Повернуть вправо">↻</button>
         <button class="c-btn c-fl" title="Отразить зеркально">⇋</button>
         <button class="c-btn c-cmp" title="Сравнить с оригиналом">👁</button>
         <button class="c-btn c-dl" title="Скачать">⬇</button>
         <button class="c-btn c-rm" title="Убрать">×</button>`;
+      row.querySelector('.c-ed').addEventListener('click', () => openEditor(it));
       row.querySelector('.c-rl').addEventListener('click', () => rotate(it, -90));
       row.querySelector('.c-rr').addEventListener('click', () => rotate(it, 90));
       row.querySelector('.c-fl').addEventListener('click', () => mirror(it));
@@ -347,6 +519,30 @@
 
     const pct = was ? Math.round((1 - now / was) * 100) : 0;
     $('cTotal').textContent = `${fmtSize(was)} → ${fmtSize(now)} (−${pct}%)`;
+
+    // подсказываем про резкость, если картинки уменьшаются заметно
+    const shrunk = cState.items.some((it) => {
+      const src = it.edited || it.img;
+      return it.outW && it.outW < src.width * 0.7;
+    });
+    $('cSharpenHint').hidden = !shrunk || $('cSharpen').checked;
+  }
+
+  /* ---------- Редактор ---------- */
+  function openEditor(it) {
+    if (!window.PhotoEditor) return;
+    window.PhotoEditor.open(it, (item, e) => {
+      if (window.PhotoEditor.hasEdits(e)) {
+        item.edit = e;
+        item.edited = window.PhotoEditor.render(item.img, e);
+      } else {
+        item.edit = null;
+        item.edited = null;
+      }
+      item.sig = '';
+      renderList();
+      scheduleProcess();
+    });
   }
 
   /* ---------- Сравнение «оригинал / сжатое» ---------- */
