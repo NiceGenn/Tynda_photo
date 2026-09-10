@@ -82,12 +82,60 @@ body {
   border-radius: 20px; padding: 4px 10px;
 }
 .c-badge.keep { background: var(--line); color: var(--muted); }
-.c-dl, .c-rm {
+.c-thumb { transition: transform .15s; }
+.c-btn {
   flex: none; width: 30px; height: 30px; border-radius: 8px; cursor: pointer;
   background: var(--panel); color: var(--text); border: 1px solid var(--line); font-size: 14px;
+  display: grid; place-items: center; padding: 0;
 }
-.c-dl:hover { border-color: var(--accent); }
+.c-btn:hover { border-color: var(--accent); }
 .c-rm:hover { border-color: #ff5d73; color: #ff5d73; }
+
+.segmented.small { padding: 3px; }
+.segmented.small .seg { font-size: 12px; padding: 6px 4px; }
+.goal-part { display: flex; flex-direction: column; gap: 10px; }
+
+/* Сравнение оригинала и результата */
+.cmp-modal {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(4, 8, 16, .82);
+  display: grid; place-items: center; padding: 20px;
+}
+.cmp-box {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+  padding: 14px; width: min(920px, 96vw); display: flex; flex-direction: column; gap: 10px;
+}
+.cmp-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.cmp-head span {
+  font-size: 14px; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cmp-close {
+  flex: none; width: 30px; height: 30px; border-radius: 8px; cursor: pointer;
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--line); font-size: 18px; line-height: 1;
+}
+.cmp-view {
+  position: relative; overflow: hidden; border-radius: 10px;
+  height: min(62vh, 520px); background: #0a111d; cursor: grab;
+}
+.cmp-view:active { cursor: grabbing; }
+.cmp-view img {
+  position: absolute; top: 50%; left: 50%;
+  transform-origin: center;
+  translate: -50% -50%;
+  max-width: none; user-select: none; pointer-events: none;
+}
+/* обрезаем через clip-path, а не width — иначе вложенная картинка
+   считает проценты от узкого контейнера и уезжает относительно нижней */
+.cmp-clip { position: absolute; inset: 0; clip-path: inset(0 50% 0 0); }
+.cmp-line { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent); pointer-events: none; }
+.cmp-tag {
+  position: absolute; bottom: 8px; font-size: 11px; padding: 3px 8px; border-radius: 20px;
+  background: rgba(0,0,0,.6); color: #fff; pointer-events: none;
+}
+.cmp-tag.left { left: 8px; }
+.cmp-tag.right { right: 8px; }
+.cmp-foot { font-size: 12px; color: var(--muted); text-align: center; }
 
 /* Layout */
 .layout {

@@ -15,7 +15,7 @@
     <div class="brand">
       <span class="logo">✦</span>
       <div>
-        <h1>Было&nbsp;→&nbsp;Стало <span class="ver" id="appVer">v2.0</span></h1>
+        <h1>Было&nbsp;→&nbsp;Стало <span class="ver" id="appVer">v2.1</span></h1>
         <p class="sub">Генератор плашек для фото · всё считается прямо в браузере</p>
       </div>
     </div>
@@ -354,9 +354,29 @@
             <option value="keep">Как в оригинале</option>
           </select>
         </label>
-        <label>Качество <span class="val" id="cQualityVal">92%</span>
-          <input type="range" id="cQuality" min="50" max="100" value="92" />
+        <label>Задавать
+          <span class="segmented small" id="cGoal">
+            <button class="seg active" data-goal="quality">Качество</button>
+            <button class="seg" data-goal="size">Вес файла</button>
+          </span>
         </label>
+        <div class="goal-part" data-goal="quality">
+          <label>Качество <span class="val" id="cQualityVal">92%</span>
+            <input type="range" id="cQuality" min="50" max="100" value="92" />
+          </label>
+        </div>
+        <div class="goal-part" data-goal="size" hidden>
+          <label>Ужать каждое фото до
+            <input type="number" id="cTargetKb" value="500" min="20" max="20000" step="10" />
+          </label>
+          <div class="presets">
+            <button class="chip c-kb" data-kb="200">200 КБ</button>
+            <button class="chip c-kb" data-kb="500">500 КБ</button>
+            <button class="chip c-kb" data-kb="1000">1 МБ</button>
+            <button class="chip c-kb" data-kb="2000">2 МБ</button>
+          </div>
+          <small class="hint">Качество подбирается автоматически — максимальное из тех, что укладывается в заданный вес.</small>
+        </div>
         <label class="switch">
           <input type="checkbox" id="cNeverBigger" checked />
           Не отдавать файл больше оригинала
@@ -364,8 +384,18 @@
       </div>
 
       <div class="group">
+        <label class="group-title">Повернуть все</label>
+        <div class="row">
+          <button class="btn ghost" id="cRotAllL">↺ Влево</button>
+          <button class="btn ghost" id="cRotAllR">↻ Вправо</button>
+          <button class="btn ghost" id="cFlipAll">⇋ Отразить</button>
+        </div>
+      </div>
+
+      <div class="group">
         <button class="btn primary" id="cDownloadZip" disabled>📦 Скачать все (ZIP)</button>
         <button class="btn ghost" id="cClear">Очистить список</button>
+        <small class="hint">При сжатии из файла удаляются EXIF-данные — в том числе GPS-координаты съёмки и модель камеры.</small>
       </div>
     </section>
 
@@ -386,6 +416,25 @@
 
   <!-- всплывающий выбор фото для ячейки коллажа -->
   <div id="cellPicker" class="cell-picker" hidden></div>
+
+  <!-- сравнение «оригинал / сжатое» -->
+  <div id="cmpModal" class="cmp-modal" hidden>
+    <div class="cmp-box">
+      <div class="cmp-head">
+        <span id="cmpTitle">Сравнение</span>
+        <button class="cmp-close" id="cmpClose" title="Закрыть">×</button>
+      </div>
+      <div class="cmp-view" id="cmpView">
+        <img id="cmpAfter" alt="">
+        <div class="cmp-clip" id="cmpClip"><img id="cmpBefore" alt=""></div>
+        <div class="cmp-line" id="cmpLine"></div>
+        <span class="cmp-tag left">оригинал</span>
+        <span class="cmp-tag right">сжатое</span>
+      </div>
+      <input type="range" id="cmpSlider" min="0" max="100" value="50" />
+      <div class="cmp-foot" id="cmpFoot">—</div>
+    </div>
+  </div>
 
   <script src="zip.js"></script>
   <script src="app.js"></script>

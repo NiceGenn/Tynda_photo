@@ -1,15 +1,12 @@
 /* Вкладка «Сжатие фото».
-   Уменьшает вес снимков без заметной потери качества: аккуратное
-   пошаговое уменьшение размера + перекодирование. Всё в браузере. */
+   Уменьшает вес снимков без заметной потери качества: поворот, аккуратное
+   пошаговое уменьшение размера, перекодирование, подбор качества под
+   заданный вес. Всё считается в браузере. */
 
 (function () {
   const $ = (id) => document.getElementById(id);
 
-  const cState = {
-    items: [],      // [{ id, name, file, img, url, origSize, out, outSize, outExt }]
-    busy: false,
-    dirty: false,
-  };
+  const cState = { items: [], busy: false, dirty: false };
   let cUid = 0;
 
   /* ---------- Пресеты ---------- */
@@ -23,6 +20,12 @@
     custom: { hint: 'Ручные настройки — крутите параметры ниже.' },
   };
 
+  function markCustom() {
+    document.querySelectorAll('#cPreset .seg').forEach((b) =>
+      b.classList.toggle('active', b.dataset.preset === 'custom'));
+    $('cPresetHint').textContent = PRESETS.custom.hint;
+  }
+
   function applyPreset(name) {
     document.querySelectorAll('#cPreset .seg').forEach((b) =>
       b.classList.toggle('active', b.dataset.preset === name));
@@ -33,6 +36,7 @@
       $('cQuality').value = String(p.quality);
       $('cFormat').value = p.format;
       $('cQualityVal').textContent = p.quality + '%';
+      setGoal('quality');
     }
     scheduleProcess();
   }
@@ -41,13 +45,34 @@
     btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
   });
 
-  // ручное изменение параметров переводит в режим «Свои»
-  ['cMaxSide', 'cFormat', 'cQuality', 'cNeverBigger'].forEach((id) => {
+  /* Что задаём: качество или конечный вес */
+  function setGoal(goal) {
+    document.querySelectorAll('#cGoal .seg').forEach((b) =>
+      b.classList.toggle('active', b.dataset.goal === goal));
+    document.querySelectorAll('.goal-part').forEach((el) => {
+      el.hidden = el.dataset.goal !== goal;
+    });
+  }
+  document.querySelectorAll('#cGoal .seg').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      setGoal(btn.dataset.goal);
+      if (btn.dataset.goal === 'size') markCustom();
+      scheduleProcess();
+    });
+  });
+  function currentGoal() {
+    const active = document.querySelector('#cGoal .seg.active');
+    return active ? active.dataset.goal : 'quality';
+  }
+
+  document.querySelectorAll('.c-kb').forEach((chip) => {
+    chip.addEventListener('click', () => { $('cTargetKb').value = chip.dataset.kb; scheduleProcess(); });
+  });
+
+  ['cMaxSide', 'cFormat', 'cQuality', 'cNeverBigger', 'cTargetKb'].forEach((id) => {
     $(id).addEventListener('input', () => {
       if (id === 'cQuality') $('cQualityVal').textContent = $('cQuality').value + '%';
-      document.querySelectorAll('#cPreset .seg').forEach((b) =>
-        b.classList.toggle('active', b.dataset.preset === 'custom'));
-      $('cPresetHint').textContent = PRESETS.custom.hint;
+      markCustom();
       scheduleProcess();
     });
   });
@@ -61,6 +86,16 @@
   dz.addEventListener('drop', (e) => { e.preventDefault(); dz.classList.remove('drag'); addFiles(e.dataTransfer.files); });
   fi.addEventListener('change', (e) => { addFiles(e.target.files); fi.value = ''; });
 
+  /* Вставка из буфера обмена — удобно для скриншотов */
+  document.addEventListener('paste', (e) => {
+    if ($('tabCompress').hidden) return;
+    const files = [...(e.clipboardData?.items || [])]
+      .filter((i) => i.type.startsWith('image/'))
+      .map((i) => i.getAsFile())
+      .filter(Boolean);
+    if (files.length) { e.preventDefault(); addFiles(files); }
+  });
+
   function addFiles(list) {
     const files = [...list].filter((f) => f.type.startsWith('image/'));
     if (!files.length) return;
@@ -70,9 +105,10 @@
       const img = new Image();
       img.onload = () => {
         cState.items.push({
-          id: ++cUid, name: file.name, file, img, url,
+          id: ++cUid, name: file.name || 'clipboard.png', file, img, url,
           origSize: file.size, origType: file.type,
-          out: null, outSize: 0, outExt: '',
+          rot: 0, flip: false,
+          out: null, outSize: 0, outExt: '', sig: '',
         });
         if (--pending === 0) { renderList(); scheduleProcess(); }
       };
@@ -82,21 +118,38 @@
   }
 
   $('cClear').addEventListener('click', () => {
-    cState.items.forEach((it) => URL.revokeObjectURL(it.url));
+    cState.items.forEach((it) => { URL.revokeObjectURL(it.url); if (it.outUrl) URL.revokeObjectURL(it.outUrl); });
     cState.items = [];
     renderList();
   });
 
+  /* ---------- Поворот ---------- */
+  function rotate(it, deg) {
+    it.rot = (((it.rot + deg) % 360) + 360) % 360;
+    it.sig = '';                       // пересчитать только этот файл
+    renderList(); scheduleProcess();
+  }
+  function mirror(it) {
+    it.flip = !it.flip;
+    it.sig = '';
+    renderList(); scheduleProcess();
+  }
+  $('cRotAllL').addEventListener('click', () => { cState.items.forEach((it) => { it.rot = (it.rot + 270) % 360; it.sig = ''; }); renderList(); scheduleProcess(); });
+  $('cRotAllR').addEventListener('click', () => { cState.items.forEach((it) => { it.rot = (it.rot + 90) % 360; it.sig = ''; }); renderList(); scheduleProcess(); });
+  $('cFlipAll').addEventListener('click', () => { cState.items.forEach((it) => { it.flip = !it.flip; it.sig = ''; }); renderList(); scheduleProcess(); });
+
   /* ---------- Сжатие ---------- */
   function readOpts() {
-    const fmt = $('cFormat').value;
     return {
       maxSide: +$('cMaxSide').value || 0,
       quality: +$('cQuality').value / 100,
-      format: fmt,
+      format: $('cFormat').value,
       neverBigger: $('cNeverBigger').checked,
+      goal: currentGoal(),
+      targetBytes: Math.max(20, +$('cTargetKb').value || 500) * 1024,
     };
   }
+  const optsSig = (o) => [o.maxSide, o.quality, o.format, o.neverBigger, o.goal, o.targetBytes].join('|');
 
   /* Пошаговое уменьшение вдвое — так меньше «лесенки», чем при одном drawImage */
   function drawScaled(img, w, h) {
@@ -119,7 +172,45 @@
     return out;
   }
 
+  /* Поворот на 90/180/270 и зеркало */
+  function applyTransform(src, rot, flip) {
+    if (!rot && !flip) return src;
+    const swap = rot === 90 || rot === 270;
+    const c = document.createElement('canvas');
+    c.width = swap ? src.height : src.width;
+    c.height = swap ? src.width : src.height;
+    const x = c.getContext('2d');
+    x.translate(c.width / 2, c.height / 2);
+    x.rotate(rot * Math.PI / 180);
+    if (flip) x.scale(-1, 1);
+    x.drawImage(src, -src.width / 2, -src.height / 2);
+    return c;
+  }
+
   const EXT = { 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/png': 'png' };
+  const toBlob = (cv, type, q) => new Promise((r) => cv.toBlob(r, type, q));
+
+  /* Подбор максимального качества, укладывающегося в заданный вес */
+  async function encodeToTarget(cv, type, targetBytes) {
+    let lo = 0.3, hi = 0.96, best = null;
+    for (let i = 0; i < 7; i++) {
+      const mid = (lo + hi) / 2;
+      const blob = await toBlob(cv, type, mid);
+      if (blob && blob.size <= targetBytes) { best = blob; lo = mid; } else { hi = mid; }
+    }
+    // даже на минимальном качестве не влезли — уменьшаем картинку и пробуем снова
+    let cur = cv;
+    for (let step = 0; !best && step < 5; step++) {
+      cur = drawScaled(cur, Math.max(1, Math.round(cur.width * 0.8)), Math.max(1, Math.round(cur.height * 0.8)));
+      lo = 0.3; hi = 0.96;
+      for (let i = 0; i < 6; i++) {
+        const mid = (lo + hi) / 2;
+        const blob = await toBlob(cur, type, mid);
+        if (blob && blob.size <= targetBytes) { best = blob; lo = mid; } else { hi = mid; }
+      }
+    }
+    return { blob: best || await toBlob(cur, type, 0.3), canvas: cur };
+  }
 
   async function compressOne(it, opts) {
     let type;
@@ -132,6 +223,8 @@
       type = opts.format;
     }
     if (!EXT[type]) type = 'image/jpeg';                 // например HEIC → JPG
+    // у PNG нет параметра качества — под заданный вес он не подстраивается
+    if (opts.goal === 'size' && type === 'image/png') type = 'image/webp';
 
     let w = it.img.width, h = it.img.height;
     if (opts.maxSide && Math.max(w, h) > opts.maxSide) {
@@ -139,22 +232,31 @@
       w = Math.max(1, Math.round(w * k));
       h = Math.max(1, Math.round(h * k));
     }
-    const cv = drawScaled(it.img, w, h);   // без уменьшения просто перерисуем 1:1 и перекодируем
-    let blob = await new Promise((r) => cv.toBlob(r, type, opts.quality));
-    if (!blob) blob = await new Promise((r) => cv.toBlob(r, 'image/jpeg', opts.quality));
+    let cv = applyTransform(drawScaled(it.img, w, h), it.rot, it.flip);
 
-    // если сжатие не помогло — отдаём оригинал как есть
-    if (opts.neverBigger && blob.size >= it.origSize) {
+    let blob;
+    if (opts.goal === 'size') {
+      const r = await encodeToTarget(cv, type, opts.targetBytes);
+      blob = r.blob; cv = r.canvas;
+    } else {
+      blob = await toBlob(cv, type, opts.quality);
+    }
+    if (!blob) { blob = await toBlob(cv, 'image/jpeg', opts.quality || 0.9); type = 'image/jpeg'; }
+
+    // если сжатие не помогло — отдаём оригинал как есть (но только если фото не крутили)
+    if (opts.neverBigger && blob.size >= it.origSize && !it.rot && !it.flip) {
       it.out = it.file; it.outSize = it.origSize;
       it.outExt = (it.name.split('.').pop() || 'jpg').toLowerCase();
       it.outW = it.img.width; it.outH = it.img.height;
       it.kept = true;
-      return;
+    } else {
+      it.out = blob; it.outSize = blob.size;
+      it.outExt = EXT[blob.type] || EXT[type] || 'jpg';
+      it.outW = cv.width; it.outH = cv.height;
+      it.kept = false;
     }
-    it.out = blob; it.outSize = blob.size;
-    it.outExt = EXT[blob.type] || EXT[type] || 'jpg';
-    it.outW = w; it.outH = h;
-    it.kept = false;
+    if (it.outUrl) URL.revokeObjectURL(it.outUrl);
+    it.outUrl = URL.createObjectURL(it.out);
   }
 
   let processTimer = null;
@@ -167,10 +269,13 @@
     if (!cState.items.length) { renderList(); return; }
     if (cState.busy) { cState.dirty = true; return; }
     cState.busy = true;
-    $('cTotal').textContent = 'Считаем…';
     const opts = readOpts();
-    for (const it of cState.items) {
-      try { await compressOne(it, opts); }
+    const sig = optsSig(opts);
+    const todo = cState.items.filter((it) => it.sig !== sig);
+    let done = 0;
+    for (const it of todo) {
+      $('cTotal').textContent = `Считаем… ${++done} из ${todo.length}`;
+      try { await compressOne(it, opts); it.sig = sig; it.error = null; }
       catch (e) { it.out = null; it.outSize = 0; it.error = String(e); }
     }
     cState.busy = false;
@@ -193,7 +298,7 @@
     $('cFileName').textContent = n ? `Выбрано: ${n}` : 'Файлы не выбраны';
 
     if (!n) {
-      list.innerHTML = '<div class="empty-hint">Загрузите фото, чтобы посмотреть, насколько их получится сжать</div>';
+      list.innerHTML = '<div class="empty-hint">Загрузите фото или вставьте из буфера (Ctrl+V), чтобы посмотреть, насколько их получится сжать</div>';
       $('cTotal').textContent = '—';
       return;
     }
@@ -209,21 +314,31 @@
       const badge = it.kept
         ? '<span class="c-badge keep">оригинал легче</span>'
         : `<span class="c-badge${saved > 0 ? '' : ' keep'}">−${saved}%</span>`;
+      const tf = `rotate(${it.rot}deg)${it.flip ? ' scaleX(-1)' : ''}`;
       row.innerHTML = `
-        <img class="c-thumb" src="${it.url}" alt="">
+        <img class="c-thumb" src="${it.url}" alt="" style="transform:${tf}">
         <div class="c-info">
           <div class="c-name" title="${it.name}">${it.name}</div>
           <div class="c-meta">
-            ${it.img.width}×${it.img.height}${it.outW && it.outW !== it.img.width ? ` → ${it.outW}×${it.outH}` : ''}
+            ${it.img.width}×${it.img.height}${it.outW && (it.outW !== it.img.width || it.outH !== it.img.height) ? ` → ${it.outW}×${it.outH}` : ''}
             · ${fmtSize(it.origSize)} → <b>${it.outSize ? fmtSize(it.outSize) : '…'}</b>
           </div>
         </div>
         ${badge}
-        <button class="c-dl" title="Скачать">⬇</button>
-        <button class="c-rm" title="Убрать">×</button>`;
+        <button class="c-btn c-rl" title="Повернуть влево">↺</button>
+        <button class="c-btn c-rr" title="Повернуть вправо">↻</button>
+        <button class="c-btn c-fl" title="Отразить зеркально">⇋</button>
+        <button class="c-btn c-cmp" title="Сравнить с оригиналом">👁</button>
+        <button class="c-btn c-dl" title="Скачать">⬇</button>
+        <button class="c-btn c-rm" title="Убрать">×</button>`;
+      row.querySelector('.c-rl').addEventListener('click', () => rotate(it, -90));
+      row.querySelector('.c-rr').addEventListener('click', () => rotate(it, 90));
+      row.querySelector('.c-fl').addEventListener('click', () => mirror(it));
+      row.querySelector('.c-cmp').addEventListener('click', () => openCompare(it));
       row.querySelector('.c-dl').addEventListener('click', () => downloadOne(it));
       row.querySelector('.c-rm').addEventListener('click', () => {
         URL.revokeObjectURL(it.url);
+        if (it.outUrl) URL.revokeObjectURL(it.outUrl);
         cState.items.splice(i, 1);
         renderList();
       });
@@ -233,6 +348,47 @@
     const pct = was ? Math.round((1 - now / was) * 100) : 0;
     $('cTotal').textContent = `${fmtSize(was)} → ${fmtSize(now)} (−${pct}%)`;
   }
+
+  /* ---------- Сравнение «оригинал / сжатое» ---------- */
+  let cmpPan = { x: 0, y: 0, drag: false, sx: 0, sy: 0 };
+
+  function openCompare(it) {
+    if (!it.out || !it.outUrl) return;
+    const tf = `rotate(${it.rot}deg)${it.flip ? ' scaleX(-1)' : ''}`;
+    $('cmpBefore').src = it.url;
+    $('cmpBefore').style.transform = tf;      // оригинал показываем в той же ориентации
+    $('cmpAfter').src = it.outUrl;
+    $('cmpTitle').textContent = it.name;
+    $('cmpFoot').textContent =
+      `${fmtSize(it.origSize)} → ${fmtSize(it.outSize)} · показано 1:1, тяните мышкой, чтобы подвигать`;
+    cmpPan = { x: 0, y: 0, drag: false, sx: 0, sy: 0 };
+    applyPan();
+    $('cmpSlider').value = 50;
+    setClip(50);
+    $('cmpModal').hidden = false;
+  }
+  function setClip(v) {
+    $('cmpClip').style.clipPath = `inset(0 ${100 - v}% 0 0)`;
+    $('cmpLine').style.left = v + '%';
+  }
+  function applyPan() {
+    $('cmpView').querySelectorAll('img').forEach((im) => {
+      im.style.marginLeft = cmpPan.x + 'px';
+      im.style.marginTop = cmpPan.y + 'px';
+    });
+  }
+  $('cmpSlider').addEventListener('input', (e) => setClip(e.target.value));
+  $('cmpClose').addEventListener('click', () => { $('cmpModal').hidden = true; });
+  $('cmpModal').addEventListener('click', (e) => { if (e.target === $('cmpModal')) $('cmpModal').hidden = true; });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') $('cmpModal').hidden = true; });
+  const view = $('cmpView');
+  view.addEventListener('mousedown', (e) => { cmpPan.drag = true; cmpPan.sx = e.clientX - cmpPan.x; cmpPan.sy = e.clientY - cmpPan.y; e.preventDefault(); });
+  window.addEventListener('mouseup', () => { cmpPan.drag = false; });
+  window.addEventListener('mousemove', (e) => {
+    if (!cmpPan.drag) return;
+    cmpPan.x = e.clientX - cmpPan.sx; cmpPan.y = e.clientY - cmpPan.sy;
+    applyPan();
+  });
 
   /* ---------- Скачивание ---------- */
   function downloadOne(it) {
