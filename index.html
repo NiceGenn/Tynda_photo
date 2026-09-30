@@ -943,8 +943,13 @@
     <section class="panel preview">
       <div class="preview-head"><span id="pdtPreviewName">Предпросмотр документа</span><span class="dims" id="pdtPreviewInfo">PDF</span></div>
       <div class="pdf-tool-frame-wrap">
-        <iframe id="pdtPreview" title="Предпросмотр PDF" hidden></iframe>
-        <div class="empty-hint" id="pdtPreviewEmpty">Выберите PDF — его содержимое появится здесь. После обработки здесь же откроется результат.</div>
+        <div class="pdf-view-controls">
+          <button class="btn ghost" id="pdtPrev" disabled>← Назад</button>
+          <span id="pdtPageStatus">—</span>
+          <button class="btn ghost" id="pdtNext" disabled>Вперёд →</button>
+        </div>
+        <canvas id="pdtPreview" aria-label="Страница PDF" hidden></canvas>
+        <div class="empty-hint" id="pdtPreviewEmpty">Выберите PDF — его страницы появятся здесь. После обработки откроется результат.</div>
       </div>
     </section>
   </main>
