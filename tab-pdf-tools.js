@@ -101,7 +101,6 @@
     link.download = name;
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    return url;
   }
 
   async function process() {
@@ -153,8 +152,10 @@
     const bytes = await output.save();
     const base = files[0].name.replace(/\.pdf$/i, '') || 'document';
     const suffix = { merge: 'merged', extract: 'pages', delete: 'edited', rotate: 'rotated', reorder: 'reordered' }[mode];
-    const resultUrl = download(bytes, base + '-' + suffix + '.pdf');
-    showPreview(resultUrl, 'Результат: ' + base + '-' + suffix + '.pdf', output.getPageCount() + ' стр.');
+    const resultName = base + '-' + suffix + '.pdf';
+    download(bytes, resultName);
+    const resultUrl = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+    showPreview(resultUrl, 'Результат: ' + resultName, output.getPageCount() + ' стр.');
     status.textContent = 'Готово: ' + output.getPageCount() + ' страниц. Результат скачан и открыт в предпросмотре.';
   }
 
