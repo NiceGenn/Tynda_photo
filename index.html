@@ -32,6 +32,7 @@
     <button class="tab" data-tab="annot">✏️ Разметка</button>
     <button class="tab" data-tab="scan">📄 Сканер</button>
     <button class="tab" data-tab="pdf">📕 PDF</button>
+    <button class="tab" data-tab="pdfTools">🧰 Инструменты PDF</button>
     <button class="tab" data-tab="qr">🔳 QR-код</button>
     <button class="tab" data-tab="exif">🔎 Паспорт фото</button>
   </nav>
@@ -899,6 +900,51 @@
     </section>
   </main>
 
+  <!-- ВКЛАДКА: ИНСТРУМЕНТЫ PDF -->
+  <main class="layout" data-panel="pdfTools" hidden>
+    <section class="panel controls">
+      <div class="group">
+        <label class="group-title" for="pdtAction">Действие с PDF</label>
+        <select id="pdtAction">
+          <option value="merge">Объединить несколько PDF</option>
+          <option value="extract">Извлечь страницы</option>
+          <option value="delete">Удалить страницы</option>
+          <option value="rotate">Повернуть все страницы</option>
+          <option value="reorder">Изменить порядок страниц</option>
+        </select>
+      </div>
+      <div class="group">
+        <label class="group-title" for="pdtFiles">PDF-файлы</label>
+        <input type="file" id="pdtFiles" accept="application/pdf,.pdf" multiple />
+        <small class="hint" id="pdtFileHint">Выберите два или больше файла для объединения.</small>
+      </div>
+      <div class="group" id="pdtPagesGroup" hidden>
+        <label class="group-title" for="pdtPages">Страницы</label>
+        <input type="text" id="pdtPages" placeholder="Например: 1, 3-5" />
+        <small class="hint">Нумерация с первой страницы. Диапазон: 1, 3-5.</small>
+      </div>
+      <div class="group" id="pdtRotateGroup" hidden>
+        <label class="group-title" for="pdtRotation">Поворот</label>
+        <select id="pdtRotation">
+          <option value="90">На 90° по часовой стрелке</option>
+          <option value="180">На 180°</option>
+          <option value="270">На 90° против часовой стрелки</option>
+        </select>
+      </div>
+      <div class="group" id="pdtOrderGroup" hidden>
+        <label class="group-title" for="pdtOrder">Новый порядок страниц</label>
+        <input type="text" id="pdtOrder" placeholder="Например: 3, 1, 2" />
+        <small class="hint">Укажите все страницы ровно один раз.</small>
+      </div>
+      <button class="btn primary" id="pdtRun">Обработать PDF</button>
+      <small class="hint" id="pdtStatus" role="status">Файлы обрабатываются в браузере и никуда не отправляются. При первом запуске инструмент загружается из сети.</small>
+    </section>
+    <section class="panel preview">
+      <div class="preview-head"><span>Инструменты PDF</span></div>
+      <div class="empty-hint">Объединяйте документы, извлекайте или удаляйте страницы, поворачивайте их и меняйте порядок.</div>
+    </section>
+  </main>
+
   <!-- ВКЛАДКА: QR-КОД -->
   <main class="layout" id="tabQr" data-panel="qr" hidden>
     <section class="panel controls">
@@ -1065,6 +1111,7 @@
   <script src="pdfwriter.js"></script>
   <script src="tab-annot.js"></script>
   <script src="tab-pdf.js"></script>
+  <script src="tab-pdf-tools.js"></script>
   <script src="tab-qr.js"></script>
   <script src="tab-exif.js"></script>
   <script src="tabs.js"></script>
