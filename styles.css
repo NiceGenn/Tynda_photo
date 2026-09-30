@@ -451,6 +451,133 @@ canvas.ready + .empty-hint { display: none; }
 .foot { text-align: center; color: var(--muted); font-size: 12px; padding: 18px; }
 .foot a { color: var(--accent); text-decoration: none; }
 
+.pdf-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 18px 12px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  background: var(--panel-2);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.pdf-dropzone:hover, .pdf-dropzone.drag {
+  border-color: var(--accent);
+  background: #182444;
+}
+.pdf-drop-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--accent);
+  font-size: 22px;
+}
+.pdf-drop-title { color: var(--text); font-size: 13px; font-weight: 600; }
+.pdf-drop-subtitle { color: var(--muted); font-size: 12px; }
+.pdf-dropzone .btn { margin-top: 4px; }
+.pdf-file-list { display: flex; flex-direction: column; gap: 6px; }
+.pdf-file-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 12px;
+}
+.pdf-file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pdf-file-remove {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 18px;
+}
+.pdf-file-remove:hover { background: var(--line); color: var(--text); }
+.pdf-pages-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pdf-page-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: 8px;
+  max-height: 340px;
+  overflow: auto;
+  padding: 2px;
+}
+.pdf-page-option {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 7px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel-2);
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+}
+.pdf-page-option:hover { border-color: var(--accent); color: var(--text); }
+.pdf-page-option.selected { border-color: var(--accent); background: #15363d; color: var(--text); }
+.pdf-page-thumb {
+  display: block;
+  width: 64px;
+  height: 82px;
+  object-fit: contain;
+  border-radius: 3px;
+  background: #fff;
+}
+.pdf-page-placeholder {
+  display: grid;
+  width: 64px;
+  height: 82px;
+  place-items: center;
+  border-radius: 3px;
+  background: #fff;
+  color: #718096;
+  font-size: 11px;
+}
+.pdf-order-list { display: flex; flex-direction: column; gap: 6px; max-height: 340px; overflow: auto; }
+.pdf-order-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel-2);
+  color: var(--text);
+  cursor: grab;
+  font-size: 12px;
+}
+.pdf-order-item.dragging { opacity: .45; }
+.pdf-order-item.drop-target { border-color: var(--accent); }
+.pdf-order-item .pdf-page-thumb, .pdf-order-item .pdf-page-placeholder { width: 38px; height: 48px; }
+.pdf-order-move {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+}
+.pdf-order-move:disabled { opacity: .35; cursor: default; }
 .pdf-tool-frame-wrap {
   display: flex;
   flex-direction: column;
@@ -465,26 +592,32 @@ canvas.ready + .empty-hint { display: none; }
   background: var(--panel-2);
 }
 .pdf-view-controls {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   display: flex;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
   gap: 12px;
   width: 100%;
+  padding: 4px;
+  background: var(--panel-2);
   color: var(--muted);
   font-size: 13px;
 }
 .pdf-tool-frame-wrap canvas {
-  max-width: 100%;
-  height: auto;
-  margin: auto 0;
+  display: block;
+  flex: 0 0 auto;
+  max-width: none;
   border-radius: 4px;
   background: #fff;
   box-shadow: 0 4px 18px rgba(0,0,0,.35);
 }
 @media (max-width: 720px) {
   .pdf-tool-frame-wrap {
-    height: 65vh;
+    height: 54vh;
     min-height: 300px;
   }
+  .pdf-page-grid, .pdf-order-list { max-height: 280px; }
 }
