@@ -15,7 +15,7 @@
     <div class="brand">
       <span class="logo">✦</span>
       <div>
-        <h1>Было&nbsp;→&nbsp;Стало <span class="ver" id="appVer">v3.2.1</span></h1>
+        <h1>Было&nbsp;→&nbsp;Стало <span class="ver" id="appVer">v3.3</span></h1>
         <p class="sub">Генератор плашек для фото · всё считается прямо в браузере</p>
       </div>
     </div>
@@ -917,6 +917,7 @@
         <label class="group-title" for="pdtFiles">PDF-файлы</label>
         <input type="file" id="pdtFiles" accept="application/pdf,.pdf" multiple />
         <small class="hint" id="pdtFileHint">Выберите два или больше файла для объединения.</small>
+        <small class="hint" id="pdtFileList">Файлы не выбраны.</small>
       </div>
       <div class="group" id="pdtPagesGroup" hidden>
         <label class="group-title" for="pdtPages">Страницы</label>
@@ -940,8 +941,11 @@
       <small class="hint" id="pdtStatus" role="status">Файлы обрабатываются в браузере и никуда не отправляются. При первом запуске инструмент загружается из сети.</small>
     </section>
     <section class="panel preview">
-      <div class="preview-head"><span>Инструменты PDF</span></div>
-      <div class="empty-hint">Объединяйте документы, извлекайте или удаляйте страницы, поворачивайте их и меняйте порядок.</div>
+      <div class="preview-head"><span id="pdtPreviewName">Предпросмотр документа</span><span class="dims" id="pdtPreviewInfo">PDF</span></div>
+      <div class="pdf-tool-frame-wrap">
+        <iframe id="pdtPreview" title="Предпросмотр PDF" hidden></iframe>
+        <div class="empty-hint" id="pdtPreviewEmpty">Выберите PDF — его содержимое появится здесь. После обработки здесь же откроется результат.</div>
+      </div>
     </section>
   </main>
 
