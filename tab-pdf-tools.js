@@ -433,14 +433,13 @@
   }
 
   async function loadSelectedPreview() {
-    const request = ++fileSelectionRequest;
     const file = selectedFiles[0];
     if (!file) {
       clearPreview();
       return;
     }
     clearPreview();
-    const currentRequest = fileSelectionRequest;
+    const request = fileSelectionRequest;
     previewEmpty.hidden = true;
     preview.hidden = false;
     previewName.textContent = file.name;
