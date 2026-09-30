@@ -2,7 +2,7 @@
    Стратегия «сеть в приоритете»: при онлайне всегда берём свежую версию
    и обновляем кэш; кэш используется только как запасной вариант офлайн.
    Это исключает залипание на старой версии после деплоя. */
-const CACHE = 'bylo-stalo-v14';
+const CACHE = 'bylo-stalo-v15';
 const ASSETS = [
   './',
   './index.html',
@@ -22,6 +22,7 @@ const ASSETS = [
   './pdfwriter.js',
   './tab-annot.js',
   './tab-pdf.js',
+  './tab-pdf-tools.js',
   './tab-qr.js',
   './tab-exif.js',
   './manifest.webmanifest',
