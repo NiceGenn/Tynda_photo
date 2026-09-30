@@ -12,28 +12,134 @@
   const previewName = $('pdtPreviewName');
   const previewInfo = $('pdtPreviewInfo');
   const previewEmpty = $('pdtPreviewEmpty');
+  const previewPageStatus = $('pdtPageStatus');
+  const previewPrev = $('pdtPrev');
+  const previewNext = $('pdtNext');
   let libraryPromise;
-  let previewUrl;
+  let viewerPromise;
+  let previewDocument;
+  let previewPageNumber = 1;
   let previewRequest = 0;
+  let renderTask;
 
   function clearPreview() {
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    previewUrl = null;
-    preview.removeAttribute('src');
+    previewRequest++;
+    if (renderTask) renderTask.cancel();
+    renderTask = null;
+    previewDocument = null;
     preview.hidden = true;
+    preview.width = 0;
+    preview.height = 0;
+    previewPageStatus.textContent = '—';
+    previewPrev.disabled = true;
+    previewNext.disabled = true;
     previewEmpty.hidden = false;
     previewName.textContent = 'Предпросмотр документа';
     previewInfo.textContent = 'PDF';
   }
 
-  function showPreview(url, name, info) {
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    previewUrl = url;
-    preview.src = url;
-    preview.hidden = false;
+  async function loadViewer() {
+    if (window.pdfjsLib) return window.pdfjsLib;
+    if (!viewerPromise) {
+      viewerPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        script.onload = () => {
+          const viewer = window.pdfjsLib || window['pdfjs-dist/build/pdf'];
+          if (!viewer) {
+            reject(new Error('Библиотека предпросмотра PDF загрузилась некорректно.'));
+            return;
+          }
+          viewer.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+          resolve(viewer);
+        };
+        script.onerror = () => reject(new Error('Не удалось загрузить предпросмотр PDF. Проверьте подключение к интернету.'));
+        document.head.appendChild(script);
+      }).catch((error) => {
+        viewerPromise = null;
+        throw error;
+      });
+    }
+    return viewerPromise;
+  }
+
+  async function loadLibrary() {
+    if (window.PDFLib) return window.PDFLib;
+    if (!libraryPromise) {
+      libraryPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';
+        script.onload = () => window.PDFLib
+          ? resolve(window.PDFLib)
+          : reject(new Error('Библиотека редактирования PDF загрузилась некорректно.'));
+        script.onerror = () => reject(new Error('Не удалось загрузить обработчик PDF. Проверьте подключение к интернету.'));
+        document.head.appendChild(script);
+      }).catch((error) => {
+        libraryPromise = null;
+        throw error;
+      });
+    }
+    return libraryPromise;
+  }
+
+  async function renderPreview(bytes, name) {
+    const request = ++previewRequest;
+    if (renderTask) renderTask.cancel();
+    previewDocument = null;
     previewEmpty.hidden = true;
+    preview.hidden = false;
     previewName.textContent = name;
-    previewInfo.textContent = info || 'PDF';
+    previewInfo.textContent = 'Загружаю страницы…';
+    try {
+      const viewer = await loadViewer();
+      const documentProxy = await viewer.getDocument({ data: bytes }).promise;
+      if (request !== previewRequest) {
+        await documentProxy.destroy();
+        return;
+      }
+      previewDocument = documentProxy;
+      previewPageNumber = 1;
+      previewInfo.textContent = documentProxy.numPages + ' стр.';
+      await renderPreviewPage();
+    } catch (error) {
+      if (request !== previewRequest) return;
+      preview.hidden = true;
+      previewEmpty.hidden = false;
+      previewEmpty.textContent = 'Не удалось показать PDF: ' + (error.message || 'ошибка чтения файла');
+      previewInfo.textContent = 'Ошибка';
+      throw error;
+    }
+  }
+
+  async function renderPreviewPage() {
+    if (!previewDocument) return;
+    if (renderTask) renderTask.cancel();
+    const page = await previewDocument.getPage(previewPageNumber);
+    const base = page.getViewport({ scale: 1 });
+    const availableWidth = Math.max(240, preview.parentElement.clientWidth - 32);
+    const scale = Math.min(1.5, availableWidth / base.width);
+    const viewport = page.getViewport({ scale });
+    const outputScale = Math.min(window.devicePixelRatio || 1, 2);
+    const context = preview.getContext('2d');
+    preview.width = Math.floor(viewport.width * outputScale);
+    preview.height = Math.floor(viewport.height * outputScale);
+    preview.style.width = Math.floor(viewport.width) + 'px';
+    preview.style.height = Math.floor(viewport.height) + 'px';
+    previewPageStatus.textContent = previewPageNumber + ' / ' + previewDocument.numPages;
+    previewPrev.disabled = previewPageNumber <= 1;
+    previewNext.disabled = previewPageNumber >= previewDocument.numPages;
+    renderTask = page.render({
+      canvasContext: context,
+      viewport,
+      transform: outputScale === 1 ? null : [outputScale, 0, 0, outputScale, 0, 0],
+    });
+    try {
+      await renderTask.promise;
+    } catch (error) {
+      if (error.name !== 'RenderingCancelledException') throw error;
+    } finally {
+      renderTask = null;
+    }
   }
 
   function syncControls(resetFiles) {
@@ -50,26 +156,7 @@
       fileList.textContent = 'Файлы не выбраны.';
       clearPreview();
     }
-    status.textContent = 'Файлы обрабатываются в браузере и никуда не отправляются. Для обработки нужна библиотека PDF, которая загружается из сети.';
-  }
-
-  function loadLibrary() {
-    if (window.PDFLib) return Promise.resolve(window.PDFLib);
-    if (!libraryPromise) {
-      libraryPromise = new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';
-        script.onload = () => window.PDFLib
-          ? resolve(window.PDFLib)
-          : reject(new Error('Библиотека PDF загрузилась некорректно.'));
-        script.onerror = () => reject(new Error('Не удалось загрузить библиотеку PDF. Проверьте подключение к интернету.'));
-        document.head.appendChild(script);
-      }).catch((error) => {
-        libraryPromise = null;
-        throw error;
-      });
-    }
-    return libraryPromise;
+    status.textContent = 'Обработка выполняется в браузере. PDF не отправляются на сервер; библиотеки для просмотра и правки загружаются из сети.';
   }
 
   function parsePages(value, count) {
@@ -154,29 +241,43 @@
     const suffix = { merge: 'merged', extract: 'pages', delete: 'edited', rotate: 'rotated', reorder: 'reordered' }[mode];
     const resultName = base + '-' + suffix + '.pdf';
     download(bytes, resultName);
-    const resultUrl = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
-    showPreview(resultUrl, 'Результат: ' + resultName, output.getPageCount() + ' стр.');
+    status.textContent = 'Готово: ' + output.getPageCount() + ' страниц. Результат скачан; предпросмотр обновляется…';
+    await renderPreview(bytes, 'Результат: ' + resultName);
     status.textContent = 'Готово: ' + output.getPageCount() + ' страниц. Результат скачан и открыт в предпросмотре.';
   }
 
-  fileInput.addEventListener('change', () => {
+  fileInput.addEventListener('change', async () => {
     const files = Array.from(fileInput.files || []);
     if (!files.length) {
       fileList.textContent = 'Файлы не выбраны.';
       clearPreview();
       return;
     }
-    const request = ++previewRequest;
-    const url = URL.createObjectURL(files[0]);
-    const label = files.length === 1 ? files[0].name : files.length + ' файла; просмотрен первый';
-    showPreview(url, label, files.length === 1 ? 'Источник' : files.length + ' PDF');
     fileList.textContent = files.map((file, index) => (index + 1) + '. ' + file.name).join(' · ');
-    if (request !== previewRequest) return;
     status.textContent = files.length === 1
-      ? 'Исходный PDF открыт справа. Выберите действие и нажмите «Обработать PDF».'
-      : 'Порядок объединения совпадает с порядком файлов выше. Просмотрен первый PDF.';
+      ? 'Исходный PDF загружается в предпросмотр справа.'
+      : 'Порядок объединения совпадает с порядком файлов выше. Загружаю первый PDF в предпросмотр.';
+    try {
+      const bytes = new Uint8Array(await files[0].arrayBuffer());
+      await renderPreview(bytes, files.length === 1 ? files[0].name : files.length + ' файла; показан первый');
+      status.textContent = files.length === 1
+        ? 'Исходный PDF открыт справа. Выберите действие и нажмите «Обработать PDF».'
+        : 'Порядок объединения совпадает с порядком файлов выше. Просмотрен первый PDF.';
+    } catch (error) {
+      status.textContent = error.message || 'Не удалось показать предпросмотр PDF.';
+    }
   });
 
+  previewPrev.addEventListener('click', async () => {
+    if (!previewDocument || previewPageNumber <= 1) return;
+    previewPageNumber--;
+    try { await renderPreviewPage(); } catch (error) { status.textContent = error.message; }
+  });
+  previewNext.addEventListener('click', async () => {
+    if (!previewDocument || previewPageNumber >= previewDocument.numPages) return;
+    previewPageNumber++;
+    try { await renderPreviewPage(); } catch (error) { status.textContent = error.message; }
+  });
   action.addEventListener('change', () => syncControls(true));
   $('pdtRun').addEventListener('click', async () => {
     const button = $('pdtRun');
