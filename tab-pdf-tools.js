@@ -26,6 +26,7 @@
   let previewDocument;
   let previewPageNumber = 1;
   let previewRequest = 0;
+  let fileSelectionRequest = 0;
   let renderTask;
   let pageOrder = [];
   let selectedPages = new Set();
@@ -85,8 +86,11 @@
 
   function clearPreview() {
     previewRequest++;
+    fileSelectionRequest++;
     if (renderTask) renderTask.cancel();
     renderTask = null;
+    const documents = new Set([previewDocument, sourcePreviewDocument].filter(Boolean));
+    documents.forEach((documentProxy) => documentProxy.destroy().catch(() => {}));
     previewDocument = null;
     sourcePreviewDocument = null;
     preview.hidden = true;
@@ -123,6 +127,10 @@
         await documentProxy.destroy();
         return;
       }
+      const previousPreview = previewDocument;
+      const previousSource = sourcePreviewDocument;
+      if (previousPreview && previousPreview !== previousSource) previousPreview.destroy().catch(() => {});
+      if (isSource && previousSource && previousSource !== previousPreview) previousSource.destroy().catch(() => {});
       previewDocument = documentProxy;
       if (isSource) {
         sourcePreviewDocument = documentProxy;
@@ -232,6 +240,13 @@
     return placeholder;
   }
 
+  function emptyPageMessage() {
+    const empty = document.createElement('div');
+    empty.className = 'empty-hint';
+    empty.textContent = 'Сначала выберите PDF.';
+    return empty;
+  }
+
   async function renderPageTools() {
     const request = ++pageToolsRequest;
     const mode = action.value;
@@ -239,8 +254,11 @@
     orderGroup.hidden = mode !== 'reorder';
     const documentProxy = sourcePreviewDocument;
     if (!documentProxy || !(['extract', 'delete', 'reorder'].includes(mode))) {
-      if (mode !== 'reorder') orderList.replaceChildren();
-      if (!['extract', 'delete'].includes(mode)) pageGrid.replaceChildren();
+      pageGrid.replaceChildren();
+      orderList.replaceChildren();
+      if (!documentProxy && ['extract', 'delete'].includes(mode)) pageGrid.append(emptyPageMessage());
+      if (!documentProxy && mode === 'reorder') orderList.append(emptyPageMessage());
+      updateSelectionCount();
       return;
     }
     pageGrid.replaceChildren();
@@ -415,12 +433,14 @@
   }
 
   async function loadSelectedPreview() {
+    const request = ++fileSelectionRequest;
     const file = selectedFiles[0];
     if (!file) {
       clearPreview();
       return;
     }
     clearPreview();
+    const currentRequest = fileSelectionRequest;
     previewEmpty.hidden = true;
     preview.hidden = false;
     previewName.textContent = file.name;
@@ -428,8 +448,9 @@
     setStatus('Открываю PDF в предпросмотре…');
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
+      if (request !== currentRequest) return;
       await renderPreview(bytes, file.name, true);
-      setStatus('Выберите страницы или действие. Исходный документ открыт справа.');
+      if (request === fileSelectionRequest) setStatus('Выберите страницы или действие. Исходный документ открыт справа.');
     } catch (error) {
       setStatus(error.message || 'Не удалось открыть PDF.');
     }
