@@ -901,55 +901,73 @@
   </main>
 
   <!-- ВКЛАДКА: ИНСТРУМЕНТЫ PDF -->
-  <main class="layout" data-panel="pdfTools" hidden>
+  <main class="layout pdf-tools-layout" data-panel="pdfTools" hidden>
     <section class="panel controls">
       <div class="group">
-        <label class="group-title" for="pdtAction">Действие с PDF</label>
+        <label class="group-title" for="pdtAction">Действие</label>
         <select id="pdtAction">
-          <option value="merge">Объединить несколько PDF</option>
-          <option value="extract">Извлечь страницы</option>
-          <option value="delete">Удалить страницы</option>
+          <option value="merge">Объединить PDF-файлы</option>
+          <option value="extract">Сохранить выбранные страницы</option>
+          <option value="delete">Удалить отмеченные страницы</option>
           <option value="rotate">Повернуть все страницы</option>
-          <option value="reorder">Изменить порядок страниц</option>
+          <option value="reorder">Переставить страницы</option>
         </select>
       </div>
       <div class="group">
-        <label class="group-title" for="pdtFiles">PDF-файлы</label>
-        <input type="file" id="pdtFiles" accept="application/pdf,.pdf" multiple />
-        <small class="hint" id="pdtFileHint">Выберите два или больше файла для объединения.</small>
-        <small class="hint" id="pdtFileList">Файлы не выбраны.</small>
+        <label class="group-title">Документы</label>
+        <input type="file" id="pdtFiles" accept="application/pdf,.pdf" hidden />
+        <div class="pdf-dropzone" id="pdtDropzone" role="button" tabindex="0" aria-label="Добавить PDF-файл">
+          <span class="pdf-drop-icon">＋</span>
+          <span class="pdf-drop-title">Перетащите PDF сюда</span>
+          <span class="pdf-drop-subtitle" id="pdtFileHint">Или выберите файл на устройстве</span>
+          <button type="button" class="btn ghost" id="pdtChoose">Выбрать PDF</button>
+        </div>
+        <div class="pdf-file-list" id="pdtFileList" aria-live="polite"></div>
       </div>
       <div class="group" id="pdtPagesGroup" hidden>
-        <label class="group-title" for="pdtPages">Страницы</label>
-        <input type="text" id="pdtPages" placeholder="Например: 1, 3-5" />
-        <small class="hint">Нумерация с первой страницы. Диапазон: 1, 3-5.</small>
+        <div class="pdf-pages-heading">
+          <span class="group-title">Выберите страницы</span>
+          <span class="hint" id="pdtSelectionCount">Ничего не выбрано</span>
+        </div>
+        <div class="row">
+          <button type="button" class="btn ghost" id="pdtSelectAll">Выбрать все</button>
+          <button type="button" class="btn ghost" id="pdtClearSelection">Снять выбор</button>
+        </div>
+        <div class="pdf-page-grid" id="pdtPageGrid">
+          <div class="empty-hint">Сначала выберите PDF.</div>
+        </div>
       </div>
       <div class="group" id="pdtRotateGroup" hidden>
-        <label class="group-title" for="pdtRotation">Поворот</label>
+        <label class="group-title" for="pdtRotation">Поворот страниц</label>
         <select id="pdtRotation">
-          <option value="90">На 90° по часовой стрелке</option>
-          <option value="180">На 180°</option>
-          <option value="270">На 90° против часовой стрелки</option>
+          <option value="90">90° по часовой стрелке</option>
+          <option value="180">180°</option>
+          <option value="270">90° против часовой стрелки</option>
         </select>
       </div>
       <div class="group" id="pdtOrderGroup" hidden>
-        <label class="group-title" for="pdtOrder">Новый порядок страниц</label>
-        <input type="text" id="pdtOrder" placeholder="Например: 3, 1, 2" />
-        <small class="hint">Укажите все страницы ровно один раз.</small>
+        <span class="group-title">Порядок страниц</span>
+        <small class="hint">Перетаскивайте карточки или перемещайте стрелками.</small>
+        <div class="pdf-order-list" id="pdtOrderList">
+          <div class="empty-hint">Сначала выберите PDF.</div>
+        </div>
       </div>
-      <button class="btn primary" id="pdtRun">Обработать PDF</button>
-      <small class="hint" id="pdtStatus" role="status">Файлы обрабатываются в браузере и никуда не отправляются. При первом запуске инструмент загружается из сети.</small>
+      <button type="button" class="btn primary" id="pdtRun">Обработать PDF</button>
+      <small class="hint" id="pdtStatus" role="status">Документы обрабатываются в браузере и не отправляются на сервер.</small>
     </section>
     <section class="panel preview">
-      <div class="preview-head"><span id="pdtPreviewName">Предпросмотр документа</span><span class="dims" id="pdtPreviewInfo">PDF</span></div>
+      <div class="preview-head">
+        <span id="pdtPreviewName">Предпросмотр документа</span>
+        <span class="dims" id="pdtPreviewInfo">PDF</span>
+      </div>
       <div class="pdf-tool-frame-wrap">
         <div class="pdf-view-controls">
-          <button class="btn ghost" id="pdtPrev" disabled>← Назад</button>
+          <button type="button" class="btn ghost" id="pdtPrev" disabled>← Назад</button>
           <span id="pdtPageStatus">—</span>
-          <button class="btn ghost" id="pdtNext" disabled>Вперёд →</button>
+          <button type="button" class="btn ghost" id="pdtNext" disabled>Вперёд →</button>
         </div>
         <canvas id="pdtPreview" aria-label="Страница PDF" hidden></canvas>
-        <div class="empty-hint" id="pdtPreviewEmpty">Выберите PDF — его страницы появятся здесь. После обработки откроется результат.</div>
+        <div class="empty-hint" id="pdtPreviewEmpty">Выберите PDF, чтобы просмотреть его страницы.</div>
       </div>
     </section>
   </main>
