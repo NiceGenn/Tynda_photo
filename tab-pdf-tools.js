@@ -5,6 +5,7 @@
   const dropzone = $('pdtDropzone');
   const fileList = $('pdtFileList');
   const fileHint = $('pdtFileHint');
+  const actionHint = $('pdtActionHint');
   const pagesGroup = $('pdtPagesGroup');
   const pageGrid = $('pdtPageGrid');
   const selectionCount = $('pdtSelectionCount');
@@ -368,6 +369,16 @@
     fileHint.textContent = mode === 'merge'
       ? 'Перетащите файлы или выберите несколько сразу.'
       : 'Перетащите PDF или выберите один файл.';
+    actionHint.textContent = {
+      merge: selectedFiles.length < 2
+        ? 'Объединение: добавьте минимум два PDF. Выбранный сейчас файл уже считается первым. Потом нажмите «Создать PDF».'
+        : 'Объединение: файлы пойдут в итоговый PDF в порядке списка. Нажмите «Создать PDF».',
+      extract: 'Сохранить отмеченные страницы в новый PDF. Выберите миниатюры, затем нажмите «Создать PDF».',
+      delete: 'Удалить отмеченные страницы из копии документа. Оригинал не изменится. Затем нажмите «Создать PDF».',
+      rotate: 'Повернуть все страницы в выбранном направлении. Оригинал не изменится. Затем нажмите «Создать PDF».',
+      reorder: 'Измените порядок страниц стрелками или перетаскиванием. Затем нажмите «Создать PDF».',
+    }[mode];
+    $('pdtRun').textContent = mode === 'merge' ? 'Создать объединённый PDF' : 'Создать PDF';
     if (mode !== 'merge' && selectedFiles.length > 1) {
       selectedFiles = selectedFiles.slice(0, 1);
       renderFileList();
@@ -447,7 +458,7 @@
     setStatus('Открываю PDF в предпросмотре…');
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
-      if (request !== currentRequest) return;
+      if (request !== fileSelectionRequest) return;
       await renderPreview(bytes, file.name, true);
       if (request === fileSelectionRequest) setStatus('Выберите страницы или действие. Исходный документ открыт справа.');
     } catch (error) {
