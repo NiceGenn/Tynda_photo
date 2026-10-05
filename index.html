@@ -32,7 +32,7 @@
     <button class="tab" data-tab="annot">✏️ Разметка</button>
     <button class="tab" data-tab="scan">📄 Сканер</button>
     <button class="tab" data-tab="pdf">📕 PDF</button>
-    <button class="tab" data-tab="pdfTools">🧰 Инструменты PDF</button>
+    <button class="tab" data-tab="pdfTools">🧰 Правка PDF</button>
     <button class="tab" data-tab="qr">🔳 QR-код</button>
     <button class="tab" data-tab="exif">🔎 Паспорт фото</button>
   </nav>
@@ -912,6 +912,7 @@
           <option value="rotate">Повернуть все страницы</option>
           <option value="reorder">Переставить страницы</option>
         </select>
+        <small class="hint" id="pdtActionHint" role="status"></small>
       </div>
       <div class="group">
         <label class="group-title">Документы</label>
@@ -952,7 +953,7 @@
           <div class="empty-hint">Сначала выберите PDF.</div>
         </div>
       </div>
-      <button type="button" class="btn primary" id="pdtRun">Обработать PDF</button>
+      <button type="button" class="btn primary" id="pdtRun">Создать PDF</button>
       <small class="hint" id="pdtStatus" role="status">Документы обрабатываются в браузере и не отправляются на сервер.</small>
     </section>
     <section class="panel preview">
