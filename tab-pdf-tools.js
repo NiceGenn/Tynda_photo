@@ -360,6 +360,11 @@
     renderPageTools();
   }
 
+  function updateActionHint() {
+    const mode = action.value;
+    updateActionHint();
+  }
+
   function updateAction() {
     const mode = action.value;
     pagesGroup.hidden = !['extract', 'delete'].includes(mode);
@@ -387,6 +392,7 @@
   }
 
   function renderFileList() {
+    updateActionHint();
     fileList.replaceChildren();
     selectedFiles.forEach((file, index) => {
       const row = document.createElement('div');
