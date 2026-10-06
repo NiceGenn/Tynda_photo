@@ -2,11 +2,12 @@
    Стратегия «сеть в приоритете»: при онлайне всегда берём свежую версию
    и обновляем кэш; кэш используется только как запасной вариант офлайн.
    Это исключает залипание на старой версии после деплоя. */
-const CACHE = 'bylo-stalo-v22';
+const CACHE = 'bylo-stalo-v23';
 const ASSETS = [
   './',
   './index.html',
   './styles.css',
+  './app-utils.js',
   './app.js',
   './zip.js',
   './compress.js',
@@ -23,7 +24,11 @@ const ASSETS = [
   './tab-annot.js',
   './tab-pdf.js',
   './tab-pdf-tools.js',
-  './tab-pdf-tools-v2.js',
+  './vendor/pdf.min.js',
+  './vendor/pdf.worker.min.js',
+  './vendor/pdf-lib.min.js',
+  './vendor/qrcode.js',
+  './vendor/libheif-bundle.js',
   './tab-qr.js',
   './tab-exif.js',
   './manifest.webmanifest',
@@ -48,8 +53,10 @@ self.addEventListener('fetch', (e) => {
   e.respondWith(
     fetch(req)
       .then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
+        if (res.ok && res.type === 'basic') {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
+        }
         return res;
       })
       .catch(() => caches.match(req))

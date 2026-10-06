@@ -621,3 +621,23 @@ canvas.ready + .empty-hint { display: none; }
   }
   .pdf-page-grid, .pdf-order-list { max-height: 280px; }
 }
+
+.app-notice {
+  position: fixed;
+  z-index: 1000;
+  top: 12px;
+  left: 50%;
+  max-width: min(92vw, 680px);
+  transform: translateX(-50%);
+  padding: 10px 16px;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 8px 30px rgba(0,0,0,.35);
+}
+.app-notice.error { border-color: #e56b6f; }
+.tab:focus-visible, button:focus-visible, [role="button"]:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}

@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' blob: data:; worker-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests" />
   <title>Было → Стало · Генератор плашек</title>
   <link rel="icon" type="image/svg+xml" href="icon.svg" />
   <link rel="apple-touch-icon" href="icon.svg" />
@@ -15,13 +16,14 @@
     <div class="brand">
       <span class="logo">✦</span>
       <div>
-        <h1>Было&nbsp;→&nbsp;Стало <span class="ver" id="appVer">v3.3</span></h1>
+        <h1>Было&nbsp;→&nbsp;Стало <span class="ver" id="appVer">v3.4</span></h1>
         <p class="sub">Генератор плашек для фото · всё считается прямо в браузере</p>
       </div>
     </div>
   </header>
 
-  <nav class="tabs" id="tabs">
+  <div id="appNotice" class="app-notice" role="status" aria-live="polite" hidden></div>
+  <nav class="tabs" id="tabs" role="tablist" aria-label="Инструменты обработки">
     <button class="tab active" data-tab="plates">🖼 Плашки</button>
     <button class="tab" data-tab="compress">🗜 Сжатие</button>
     <button class="tab" data-tab="ba">↔️ До / После</button>
@@ -1064,8 +1066,8 @@
   <div id="cellPicker" class="cell-picker" hidden></div>
 
   <!-- редактор: кадрирование, горизонт, коррекция -->
-  <div id="edModal" class="ed-modal" hidden>
-    <div class="ed-box">
+  <div id="edModal" class="ed-modal" role="dialog" aria-modal="true" aria-labelledby="edTitle" hidden>
+    <div class="ed-box" tabindex="-1">
       <div class="ed-head">
         <span id="edTitle">Редактор</span>
         <button class="cmp-close" id="edClose" title="Закрыть">×</button>
@@ -1108,8 +1110,8 @@
   </div>
 
   <!-- сравнение «оригинал / сжатое» -->
-  <div id="cmpModal" class="cmp-modal" hidden>
-    <div class="cmp-box">
+  <div id="cmpModal" class="cmp-modal" role="dialog" aria-modal="true" aria-labelledby="cmpTitle" hidden>
+    <div class="cmp-box" tabindex="-1">
       <div class="cmp-head">
         <span id="cmpTitle">Сравнение</span>
         <button class="cmp-close" id="cmpClose" title="Закрыть">×</button>
@@ -1126,6 +1128,7 @@
     </div>
   </div>
 
+  <script src="app-utils.js"></script>
   <script src="zip.js"></script>
   <script src="editor.js"></script>
   <script src="app.js"></script>
@@ -1140,7 +1143,7 @@
   <script src="pdfwriter.js"></script>
   <script src="tab-annot.js"></script>
   <script src="tab-pdf.js"></script>
-  <script src="tab-pdf-tools-v2.js"></script>
+  <script src="tab-pdf-tools.js"></script>
   <script src="tab-qr.js"></script>
   <script src="tab-exif.js"></script>
   <script src="tabs.js"></script>

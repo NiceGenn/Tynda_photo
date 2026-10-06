@@ -46,17 +46,17 @@
     if (!viewerPromise) {
       viewerPromise = new Promise((resolve, reject) => {
         const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        script.src = 'vendor/pdf.min.js';
         script.onload = () => {
           const viewer = window.pdfjsLib || window['pdfjs-dist/build/pdf'];
           if (!viewer) {
             reject(new Error('Библиотека предпросмотра PDF загрузилась некорректно.'));
             return;
           }
-          viewer.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+          viewer.GlobalWorkerOptions.workerSrc = 'vendor/pdf.worker.min.js';
           resolve(viewer);
         };
-        script.onerror = () => reject(new Error('Не удалось загрузить предпросмотр PDF. Проверьте подключение к интернету.'));
+        script.onerror = () => reject(new Error('Не удалось загрузить локальный модуль предпросмотра PDF.'));
         document.head.appendChild(script);
       }).catch((error) => {
         viewerPromise = null;
@@ -71,11 +71,11 @@
     if (!libraryPromise) {
       libraryPromise = new Promise((resolve, reject) => {
         const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';
+        script.src = 'vendor/pdf-lib.min.js';
         script.onload = () => window.PDFLib
           ? resolve(window.PDFLib)
           : reject(new Error('Библиотека правки PDF загрузилась некорректно.'));
-        script.onerror = () => reject(new Error('Не удалось загрузить инструменты PDF. Проверьте подключение к интернету.'));
+        script.onerror = () => reject(new Error('Не удалось загрузить локальный модуль правки PDF.'));
         document.head.appendChild(script);
       }).catch((error) => {
         libraryPromise = null;
@@ -433,6 +433,7 @@
       setStatus('Выберите файл с расширением PDF.');
       return;
     }
+    if (!window.AppUtils.validateFiles(files, 'pdf')) return;
     if (action.value === 'merge') {
       const known = new Set(selectedFiles.map((file) => file.name + ':' + file.size + ':' + file.lastModified));
       selectedFiles.push(...files.filter((file) => {
